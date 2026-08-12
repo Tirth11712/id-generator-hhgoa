@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+:root {
+  /* Hacker House Goa brand palette */
+  --hh-green: #0e4534;
+  --hh-deep: #062a20;
+  --hh-cream: #f6eedc;
+  --hh-yellow: #f5c542;
+  --hh-pink: #f0567a;
+  --hh-ink: #101010;
+
+  color-scheme: dark;
+  font-family: "Space Mono", ui-monospace, monospace;
+}
+
+body {
+  margin: 0;
+  background-color: var(--hh-green);
+  color: var(--hh-cream);
+}
+
+@keyframes hh-walk-in {
+  from {
+    transform: translateX(-60%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
