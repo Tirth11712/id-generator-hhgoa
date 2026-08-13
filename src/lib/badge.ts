@@ -409,11 +409,11 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   ctx.textBaseline = "middle";
   ctx.fillText(tag, cx, pillY + pillH / 2 + 1);
 
-  // Main Credential Card Container
+  // Main Credential Card Container (Repositioned to clear top header and bottom footer)
   const cardW = t(920);
-  const cardH = t(650);
+  const cardH = t(585);
   const cardX = cx - cardW / 2;
-  const cardY = t(330);
+  const cardY = t(300);
   const cardR = t(28);
 
   // Card Outer Shadow / Border
@@ -421,7 +421,7 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   roundRect(ctx, cardX - 6, cardY - 6, cardW + 12, cardH + 12, cardR + 6);
   ctx.fill();
 
-  // Card Body (Restored Cream/White fill)
+  // Card Body (Cream/White fill)
   ctx.fillStyle = CREAM;
   roundRect(ctx, cardX, cardY, cardW, cardH, cardR);
   ctx.fill();
@@ -435,24 +435,24 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   const displayTitle = (input.title.trim() || BUILDER_TITLES[0]!).toUpperCase();
   const pid = passId(`${input.name}|${input.role}|${input.title}`);
 
-  let cy = cardY + t(50);
+  let cy = cardY + t(46);
 
   // Section 1: BUILDER NAME
-  ctx.font = `700 ${t(15)}px ${MONO}`;
+  ctx.font = `700 ${t(14)}px ${MONO}`;
   ctx.fillStyle = GREEN;
   ctx.globalAlpha = 0.65;
   ctx.textAlign = "left";
   ctx.fillText("VERIFIED BUILDER", px, cy);
   ctx.globalAlpha = 1.0;
 
-  cy += t(44);
-  fitText(ctx, displayName, innerW, 46, 22, "700", MONO);
+  cy += t(38);
+  fitText(ctx, displayName, innerW, 42, 20, "700", MONO);
   ctx.fillStyle = INK;
   ctx.textAlign = "left";
   ctx.fillText(displayName, px, cy);
 
   // Divider
-  cy += t(24);
+  cy += t(20);
   ctx.strokeStyle = "rgba(16,16,16,0.15)";
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -461,29 +461,29 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   ctx.stroke();
 
   // Section 2: TITLE (Highlight Box)
-  cy += t(34);
-  ctx.font = `700 ${t(15)}px ${MONO}`;
+  cy += t(30);
+  ctx.font = `700 ${t(14)}px ${MONO}`;
   ctx.fillStyle = GREEN;
   ctx.globalAlpha = 0.65;
   ctx.fillText("HONORARY TITLE", px, cy);
   ctx.globalAlpha = 1.0;
 
-  cy += t(36);
-  let ts = 24;
+  cy += t(32);
+  let ts = 22;
   let lines: string[] = [];
-  while (ts > 14) {
+  while (ts > 13) {
     ctx.font = `700 ${ts}px ${MONO}`;
     lines = wrap(ctx, displayTitle, innerW - t(36));
     if (lines.length <= 2) break;
     ts -= 1;
   }
   lines = lines.slice(0, 2);
-  const lineH = Math.round(ts * 1.28);
-  const titleBoxH = lines.length * lineH + t(20);
+  const lineH = Math.round(ts * 1.25);
+  const titleBoxH = lines.length * lineH + t(18);
 
   // Title Box Fill (Deep Green Accent Container)
   ctx.fillStyle = DEEP;
-  roundRect(ctx, px, cy - t(22), innerW, titleBoxH, t(14));
+  roundRect(ctx, px, cy - t(20), innerW, titleBoxH, t(14));
   ctx.fill();
 
   ctx.fillStyle = YELLOW;
@@ -492,32 +492,32 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
     ctx.fillText(line, px + t(18), cy + i * lineH + t(4));
   });
 
-  cy += titleBoxH + t(26);
+  cy += titleBoxH + t(22);
 
   // Section 3: STACK / ROLE & PASS ID (2 Columns)
   const col1W = innerW * 0.58;
   const col2X = px + innerW * 0.62;
   const col2W = innerW * 0.38;
 
-  ctx.font = `700 ${t(15)}px ${MONO}`;
+  ctx.font = `700 ${t(14)}px ${MONO}`;
   ctx.fillStyle = GREEN;
   ctx.globalAlpha = 0.65;
   ctx.fillText("PRIMARY STACK", px, cy);
   ctx.fillText("PASS ID", col2X, cy);
   ctx.globalAlpha = 1.0;
 
-  cy += t(34);
-  fitText(ctx, displayRole, col1W, 24, 14);
+  cy += t(30);
+  fitText(ctx, displayRole, col1W, 22, 13);
   ctx.fillStyle = INK;
   ctx.fillText(displayRole, px, cy);
 
-  fitText(ctx, pid, col2W, 24, 14);
+  fitText(ctx, pid, col2W, 22, 13);
   ctx.fillStyle = PINK;
   ctx.fillText(pid, col2X, cy);
 
   // Section 4: Barcode at foot of card
-  cy += t(40);
-  const bcH = t(44);
+  cy += t(34);
+  const bcH = t(38);
   let seed = 0x811c9dc5;
   for (const ch of displayName + displayRole + displayTitle + pid) {
     seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
@@ -534,9 +534,17 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   }
   ctx.globalAlpha = 1.0;
 
-  // Footer Tagline (positioned well clear of card and bottom floral artwork)
-  const footerY = t(1055);
-  tracked(ctx, "HACKER HOUSE GOA · BUILDER PASS 2026", cx, footerY, 18, 4, CREAM);
+  // Footer Tagline (positioned in the beach area with dark backdrop pill for 100% clarity)
+  const footerY = t(960);
+  const taglineText = "HACKER HOUSE GOA · BUILDER PASS 2026";
+  ctx.font = `700 ${t(18)}px ${MONO}`;
+  const taglineW = ctx.measureText(taglineText).width;
+  ctx.fillStyle = DEEP;
+  ctx.globalAlpha = 0.85;
+  roundRect(ctx, cx - taglineW / 2 - t(20), footerY - t(22), taglineW + t(40), t(36), t(18));
+  ctx.fill();
+  ctx.globalAlpha = 1.0;
+  tracked(ctx, taglineText, cx, footerY, 18, 4, CREAM);
 }
 
 /**
