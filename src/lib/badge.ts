@@ -345,13 +345,17 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   ctx.clearRect(0, 0, W, H);
   ctx.imageSmoothingQuality = "high";
 
-  // Render the dedicated back artwork template
+  // Dedicated back artwork template — renders directly cleanly without overlays
   if (input.backArt) {
     ctx.drawImage(input.backArt, 0, 0, W, H);
-  } else if (input.art) {
-    ctx.fillStyle = DEEP;
-    ctx.fillRect(0, 0, W, H);
+    return;
+  }
 
+  // Fallback programmatic layout if backArt is not loaded
+  ctx.fillStyle = DEEP;
+  ctx.fillRect(0, 0, W, H);
+
+  if (input.art) {
     const src = input.art;
     const sx = src.naturalWidth || src.width;
     const sy = src.naturalHeight || src.height;
@@ -380,9 +384,6 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
       W,
       footH,
     );
-  } else {
-    ctx.fillStyle = DEEP;
-    ctx.fillRect(0, 0, W, H);
   }
 
   const cx = W / 2;
@@ -414,7 +415,7 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   ctx.textBaseline = "middle";
   ctx.fillText(tag, cx, pillY + pillH / 2 + 1);
 
-  // Main Credential Card Container (Repositioned to clear top header and bottom footer)
+  // Main Credential Card Container
   const cardW = t(920);
   const cardH = t(585);
   const cardX = cx - cardW / 2;
