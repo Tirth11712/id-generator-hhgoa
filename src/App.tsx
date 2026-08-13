@@ -4,7 +4,6 @@ import cardTemplateUrl from "./assets/hh-goa-card-template.jpeg";
 import cardBackTemplateUrl from "./assets/hh-goa-card-back-template.png";
 
 import {
-  composeSheet,
   drawBadge,
   drawBadgeBack,
   loadImage,
@@ -143,20 +142,19 @@ export default function App() {
     return () => window.removeEventListener("paste", onPaste);
   }, [onFile]);
 
-  /** PNG carrying both faces of the pass side-by-side. */
-  const sheetBlob = useCallback(
+  /** PNG of the front builder pass card. */
+  const frontCardBlob = useCallback(
     () =>
       new Promise<Blob | null>((resolve) => {
         const front = frontRef.current;
-        const back = backRef.current;
-        if (!front || !back) return resolve(null);
-        composeSheet(front, back).toBlob((b) => resolve(b), "image/png");
+        if (!front) return resolve(null);
+        front.toBlob((b) => resolve(b), "image/png");
       }),
     [],
   );
 
   const download = useCallback(async () => {
-    const blob = await sheetBlob();
+    const blob = await frontCardBlob();
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -166,8 +164,8 @@ export default function App() {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast("Downloaded — front and back pass sheet");
-  }, [name, sheetBlob, showToast]);
+    showToast("Downloaded — builder pass (front)");
+  }, [name, frontCardBlob, showToast]);
 
   /**
    * One-pass Share to X:
