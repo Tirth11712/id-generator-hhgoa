@@ -3,7 +3,9 @@ import artUrl from "./assets/hh-goa-bg.jpg";
 import cardTemplateUrl from "./assets/hh-goa-card-template.jpeg";
 
 import {
+  composeSheet,
   drawBadge,
+  drawBadgeBack,
   loadImage,
   loadImageFromFile,
   pickBuilderTitle,
@@ -28,6 +30,7 @@ const uSlice = (s: string, max: number) => {
 
 export default function App() {
   const frontRef = useRef<HTMLCanvasElement>(null);
+  const backRef = useRef<HTMLCanvasElement>(null);
   const templateRef = useRef<HTMLImageElement | null>(null);
   const photoRef = useRef<HTMLImageElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -45,6 +48,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [side, setSide] = useState<"front" | "back">("front");
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,6 +85,7 @@ export default function App() {
     renderRaf.current = requestAnimationFrame(() => {
       const input = { ...badgeInput, photo: photoRef.current, art: templateRef.current };
       if (frontRef.current) drawBadge(frontRef.current, input);
+      if (backRef.current) drawBadgeBack(backRef.current, input);
     });
     return () => cancelAnimationFrame(renderRaf.current);
   }, [badgeInput]);
@@ -129,19 +134,20 @@ export default function App() {
     return () => window.removeEventListener("paste", onPaste);
   }, [onFile]);
 
-  /** PNG of the front builder pass. */
-  const cardBlob = useCallback(
+  /** PNG carrying both faces of the pass side-by-side. */
+  const sheetBlob = useCallback(
     () =>
       new Promise<Blob | null>((resolve) => {
         const front = frontRef.current;
-        if (!front) return resolve(null);
-        front.toBlob((b) => resolve(b), "image/png");
+        const back = backRef.current;
+        if (!front || !back) return resolve(null);
+        composeSheet(front, back).toBlob((b) => resolve(b), "image/png");
       }),
     [],
   );
 
   const download = useCallback(async () => {
-    const blob = await cardBlob();
+    const blob = await sheetBlob();
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -151,8 +157,8 @@ export default function App() {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast("Downloaded — builder pass image");
-  }, [name, cardBlob, showToast]);
+    showToast("Downloaded — front and back pass sheet");
+  }, [name, sheetBlob, showToast]);
 
   /**
    * Directly redirects to X with pre-filled caption & handle tag in one click.
@@ -161,17 +167,15 @@ export default function App() {
     const text = caption(title, handle);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     
-    // Copy badge image to clipboard synchronously if supported for easy pasting
-    cardBlob().then((blob) => {
+    sheetBlob().then((blob) => {
       if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
         navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).catch(() => {});
       }
     });
 
-    // Direct, unblocked popup open on user click
     window.open(tweetUrl, "_blank", "noopener,noreferrer");
     showToast("Opening X — image copied to clipboard (paste with Ctrl/⌘+V)");
-  }, [handle, title, cardBlob, showToast]);
+  }, [handle, title, sheetBlob, showToast]);
 
   function reset() {
     setName("");
@@ -208,8 +212,8 @@ export default function App() {
         </header>
 
         <div className="flex flex-col gap-4 min-h-0 flex-1 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,500px)] md:grid-rows-1 md:items-stretch md:gap-5">
-          {/* ---------- Preview: flips between the two faces ---------- */}
-          <div className="flex min-h-[360px] sm:min-h-[420px] md:min-h-0 flex-col items-center justify-center gap-2">
+          {/* ---------- Preview: interactive 3D 180-degree card flip ---------- */}
+          <div className="flex min-h-[360px] sm:min-h-[420px] md:min-h-0 flex-col items-center justify-center gap-3">
             <div
               role="button"
               tabIndex={0}
@@ -241,22 +245,63 @@ export default function App() {
                 onFile(e.dataTransfer.files?.[0]);
               }}
               onClick={() => inputRef.current?.click()}
-              className={`relative flex h-full min-h-0 w-full max-w-[340px] sm:max-w-[420px] md:max-w-none flex-1 cursor-pointer items-center justify-center rounded-2xl border-[3px] p-2 shadow-[6px_6px_0_0_var(--hh-ink)] transition md:rounded-3xl md:p-3 md:shadow-[10px_10px_0_0_var(--hh-ink)] ${
+              className={`perspective-1000 relative flex h-full min-h-0 w-full max-w-[340px] sm:max-w-[420px] md:max-w-none flex-1 cursor-pointer items-center justify-center rounded-2xl border-[3px] p-2 shadow-[6px_6px_0_0_var(--hh-ink)] transition md:rounded-3xl md:p-3 md:shadow-[10px_10px_0_0_var(--hh-ink)] ${
                 dragging
                   ? "border-[color:var(--hh-yellow)] bg-[color:var(--hh-yellow)]/25"
                   : "border-[color:var(--hh-ink)] bg-[color:var(--hh-deep)]"
               }`}
             >
-              <canvas
-                ref={frontRef}
-                className="block h-full max-h-[500px] md:max-h-full w-auto max-w-full rounded-xl object-contain md:rounded-2xl"
-                aria-label="Your Hacker House Goa builder ID card"
-              />
+              {/* 3D Inner Flipper */}
+              <div
+                className={`transform-style-3d relative h-full w-full max-h-[500px] md:max-h-full flex items-center justify-center transition-transform duration-700 ease-in-out ${
+                  side === "back" ? "rotate-y-180" : ""
+                }`}
+              >
+                {/* Front Side */}
+                <div className="backface-hidden absolute inset-0 flex items-center justify-center">
+                  <canvas
+                    ref={frontRef}
+                    className="block h-full max-h-[500px] md:max-h-full w-auto max-w-full rounded-xl object-contain md:rounded-2xl"
+                    aria-label="Front of your Hacker House Goa builder ID card"
+                  />
+                </div>
+
+                {/* Back Side */}
+                <div className="backface-hidden rotate-y-180 absolute inset-0 flex items-center justify-center">
+                  <canvas
+                    ref={backRef}
+                    className="block h-full max-h-[500px] md:max-h-full w-auto max-w-full rounded-xl object-contain md:rounded-2xl"
+                    aria-label="Back of your Hacker House Goa builder ID card"
+                  />
+                </div>
+              </div>
+
               {busy ? (
-                <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[color:var(--hh-deep)]/70 font-mono text-xs font-bold">
+                <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-[color:var(--hh-deep)]/70 font-mono text-xs font-bold">
                   Processing photo…
                 </div>
               ) : null}
+            </div>
+
+            {/* Side Toggle Control */}
+            <div className="flex shrink-0 items-center gap-1 rounded-full border-2 border-[color:var(--hh-ink)] bg-[color:var(--hh-deep)] p-1 shadow-md">
+              {(["front", "back"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSide(s);
+                  }}
+                  className={`rounded-full px-5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest transition-all duration-200 ${
+                    side === s
+                      ? "bg-[color:var(--hh-yellow)] text-[color:var(--hh-ink)] shadow-sm scale-105"
+                      : "text-[color:var(--hh-cream)]/60 hover:text-[color:var(--hh-cream)]"
+                  }`}
+                >
+                  {s === "front" ? "🎴 Front" : "🔄 Back"}
+                </button>
+              ))}
             </div>
           </div>
 
