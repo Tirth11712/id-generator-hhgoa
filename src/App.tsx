@@ -162,57 +162,23 @@ export default function App() {
   }, [name, sheetBlob, showToast]);
 
   /**
-   * Phones get the native share sheet with the PNG genuinely attached.
-   * Desktop copies it to the clipboard and opens the X composer pre-filled,
-   * so it's one paste away from being on the post.
+   * Directly redirects to X with pre-filled caption & handle tag in one click.
    */
-  const shareToX = useCallback(async () => {
+  const shareToX = useCallback(() => {
     const text = caption(title, handle);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-
-    // Open the tweet window synchronously so popup blockers don't kill it.
-    // We'll set location later if we need native share instead.
-    const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
-
-    const blob = await sheetBlob();
-    const file = blob ? new File([blob], fileName(name), { type: "image/png" }) : null;
-    const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-
-    if (file && nav.canShare?.({ files: [file] })) {
-      try {
-        // Close the blank popup — native share replaces it.
-        popup?.close();
-        await nav.share({ files: [file], text });
-        return;
-      } catch (e) {
-        if (e instanceof DOMException && e.name === "AbortError") return;
+    
+    // Copy badge image to clipboard synchronously if supported for easy pasting
+    sheetBlob().then((blob) => {
+      if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
+        navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).catch(() => {});
       }
-    }
+    });
 
-    let copied = false;
-    if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
-      try {
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-        copied = true;
-      } catch {
-        /* clipboard image write unsupported — the download covers it */
-      }
-    }
-    if (!copied) await download();
-
-    showToast(
-      copied
-        ? "Card copied — paste into the post with Ctrl/⌘+V"
-        : "Card downloaded — attach it to the post",
-    );
-
-    // Navigate the already-open popup to the tweet composer.
-    if (popup && !popup.closed) {
-      popup.location.href = tweetUrl;
-    } else {
-      window.open(tweetUrl, "_blank", "noopener,noreferrer");
-    }
-  }, [download, handle, name, showToast, title, sheetBlob]);
+    // Direct, unblocked popup open on user click
+    window.open(tweetUrl, "_blank", "noopener,noreferrer");
+    showToast("Opening X — image copied to clipboard (paste with Ctrl/⌘+V)");
+  }, [handle, title, sheetBlob, showToast]);
 
   function reset() {
     setName("");
