@@ -169,16 +169,43 @@ export default function App() {
 
   /**
    * One-pass Share to X:
-   * Opens Twitter/X composer pre-filled with tweet caption & handle immediately.
+   * - Mobile: triggers native Web Share API with the PNG file attached & pre-filled text.
+   * - Desktop: copies image to clipboard & opens Twitter pre-filled composer immediately.
+   * No login wall, no signup gate.
    */
-  const shareToX = useCallback(() => {
+  const shareToX = useCallback(async () => {
     const text = caption(title, handle);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+
+    const blob = await frontCardBlob();
+    const file = blob ? new File([blob], fileName(name), { type: "image/png" }) : null;
+    const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+
+    // 1. Mobile Native Share Sheet with genuine PNG image attachment
+    if (file && nav.canShare?.({ files: [file] })) {
+      try {
+        await nav.share({ files: [file], text });
+        return;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+      }
+    }
+
+    // 2. Desktop: Copy image to clipboard for instant 1-tap paste (Ctrl+V / Cmd+V)
+    if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      } catch {
+        /* fallback to intent redirect */
+      }
+    }
+
+    // 3. Open Twitter intent composer in one pass
     const popup = window.open(tweetUrl, "_blank", "noopener,noreferrer");
     if (!popup || popup.closed || typeof popup.closed === "undefined") {
       window.location.href = tweetUrl;
     }
-  }, [handle, title]);
+  }, [handle, name, title, frontCardBlob]);
 
   function reset() {
     setName("");
