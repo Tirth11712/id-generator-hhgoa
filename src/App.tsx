@@ -14,8 +14,10 @@ import {
 
 const HASHTAG = "#FrameInGoa";
 
-const caption = (title: string) =>
-  `Just minted my Hacker House Goa 2026 builder pass — certified ${title} 🥥\n\nSee you on the beach, builders. ${HASHTAG}`;
+const caption = (title: string, handle?: string) => {
+  const tag = handle ? `@${handle.replace(/^@/, "").trim()} ` : "";
+  return `Just minted my Hacker House Goa 2026 builder pass ${tag}— certified ${title} 🥥\n\nSee you on the beach, builders. ${HASHTAG}`;
+};
 
 const fileName = (name: string) =>
   `hh-goa-2026-${(name.trim() || "builder").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.png`;
@@ -38,6 +40,7 @@ export default function App() {
 
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
+  const [handle, setHandle] = useState("");
   const [title, setTitle] = useState(BUILDER_TITLES[0]!);
   const [titleTouched, setTitleTouched] = useState(false);
   const [hasPhoto, setHasPhoto] = useState(false);
@@ -164,7 +167,7 @@ export default function App() {
    * so it's one paste away from being on the post.
    */
   const shareToX = useCallback(async () => {
-    const text = caption(title);
+    const text = caption(title, handle);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
 
     // Open the tweet window synchronously so popup blockers don't kill it.
@@ -209,11 +212,12 @@ export default function App() {
     } else {
       window.open(tweetUrl, "_blank", "noopener,noreferrer");
     }
-  }, [download, name, showToast, title, sheetBlob]);
+  }, [download, handle, name, showToast, title, sheetBlob]);
 
   function reset() {
     setName("");
     setRole("");
+    setHandle("");
     setTitleTouched(false);
     setHasPhoto(false);
     photoRef.current = null;
@@ -352,7 +356,7 @@ export default function App() {
                 </span>
               </button>
 
-              <div className="mt-4 sm:mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="mt-4 sm:mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div className="space-y-2">
                   <label className={legend} htmlFor="hh-name">
                     Name
@@ -375,6 +379,19 @@ export default function App() {
                     value={role}
                     onChange={(e) => setRole(uSlice(e.target.value, 28))}
                     placeholder="Full-stack · Rust"
+                    className={field}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className={legend} htmlFor="hh-handle">
+                    X Username
+                  </label>
+                  <input
+                    id="hh-handle"
+                    value={handle}
+                    onChange={(e) => setHandle(uSlice(e.target.value.replace(/\s+/g, ""), 20))}
+                    placeholder="@adalovelace"
+                    autoComplete="username"
                     className={field}
                   />
                 </div>
