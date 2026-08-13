@@ -308,16 +308,12 @@ export function drawBadge(canvas: HTMLCanvasElement, input: BadgeInput) {
     titleSize -= 1;
   }
   ctx.fillStyle = YELLOW;
-  lines.forEach((line, i) => ctx.fillText(line, x, row.titleValue + i * lineH));
-
-  const last = lines[lines.length - 1] ?? "";
-  rule(
-    ctx,
-    x,
-    row.titleValue + (lines.length - 1) * lineH + 12,
-    Math.min(ctx.measureText(last).width, maxW),
-    YELLOW,
-  );
+  lines.forEach((line, i) => {
+    const ly = row.titleValue + i * lineH;
+    ctx.fillText(line, x, ly);
+    const lineW = Math.min(ctx.measureText(line).width, maxW);
+    rule(ctx, x, ly + 10, lineW, YELLOW);
+  });
 }
 
 /** Stable per-builder pass number, so the back reads like a real credential. */
