@@ -75,6 +75,7 @@ const PINK = "#CE1C58";
 const GREEN = "#0E4534";
 const DEEP = "#062A20";
 const INK = "#101010";
+export { INK };
 const MONO = `"Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace`;
 
 function roundRect(
@@ -419,8 +420,8 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   roundRect(ctx, cardX - 6, cardY - 6, cardW + 12, cardH + 12, cardR + 6);
   ctx.fill();
 
-  // Card Body (Cream)
-  ctx.fillStyle = CREAM;
+  // Card Body (Deep Green matching background)
+  ctx.fillStyle = DEEP;
   roundRect(ctx, cardX, cardY, cardW, cardH, cardR);
   ctx.fill();
 
@@ -437,21 +438,21 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
 
   // Section 1: BUILDER NAME
   ctx.font = `700 ${t(15)}px ${MONO}`;
-  ctx.fillStyle = GREEN;
-  ctx.globalAlpha = 0.65;
+  ctx.fillStyle = YELLOW;
+  ctx.globalAlpha = 0.75;
   ctx.textAlign = "left";
   ctx.fillText("VERIFIED BUILDER", px, cy);
   ctx.globalAlpha = 1.0;
 
   cy += t(44);
   fitText(ctx, displayName, innerW, 46, 22, "700", MONO);
-  ctx.fillStyle = INK;
+  ctx.fillStyle = CREAM;
   ctx.textAlign = "left";
   ctx.fillText(displayName, px, cy);
 
   // Divider
   cy += t(24);
-  ctx.strokeStyle = "rgba(16,16,16,0.15)";
+  ctx.strokeStyle = "rgba(246,238,220,0.18)";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(px, cy);
@@ -461,8 +462,8 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   // Section 2: TITLE (Highlight Box)
   cy += t(34);
   ctx.font = `700 ${t(15)}px ${MONO}`;
-  ctx.fillStyle = GREEN;
-  ctx.globalAlpha = 0.65;
+  ctx.fillStyle = YELLOW;
+  ctx.globalAlpha = 0.75;
   ctx.fillText("HONORARY TITLE", px, cy);
   ctx.globalAlpha = 1.0;
 
@@ -479,8 +480,8 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   const lineH = Math.round(ts * 1.28);
   const titleBoxH = lines.length * lineH + t(20);
 
-  // Title Box Fill (Deep Dark Green Card inside Cream)
-  ctx.fillStyle = DEEP;
+  // Title Box Fill (Slightly lighter Green container)
+  ctx.fillStyle = GREEN;
   roundRect(ctx, px, cy - t(22), innerW, titleBoxH, t(14));
   ctx.fill();
 
@@ -498,15 +499,15 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   const col2W = innerW * 0.38;
 
   ctx.font = `700 ${t(15)}px ${MONO}`;
-  ctx.fillStyle = GREEN;
-  ctx.globalAlpha = 0.65;
+  ctx.fillStyle = YELLOW;
+  ctx.globalAlpha = 0.75;
   ctx.fillText("PRIMARY STACK", px, cy);
   ctx.fillText("PASS ID", col2X, cy);
   ctx.globalAlpha = 1.0;
 
   cy += t(34);
   fitText(ctx, displayRole, col1W, 24, 14);
-  ctx.fillStyle = INK;
+  ctx.fillStyle = CREAM;
   ctx.fillText(displayRole, px, cy);
 
   fitText(ctx, pid, col2W, 24, 14);
@@ -520,13 +521,13 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   for (const ch of displayName + displayRole + displayTitle + pid) {
     seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
   }
-  ctx.fillStyle = INK;
+  ctx.fillStyle = CREAM;
   let bx = px;
   while (bx < px + innerW) {
     seed = (seed * 1103515245 + 12345) >>> 0;
     const barW = 2 + (seed % 7);
     const gap = 3 + ((seed >> 9) % 6);
-    ctx.globalAlpha = 0.6 + ((seed >> 17) % 35) / 100;
+    ctx.globalAlpha = 0.55 + ((seed >> 17) % 35) / 100;
     ctx.fillRect(bx, cy, Math.min(barW, px + innerW - bx), bcH);
     bx += barW + gap;
   }
