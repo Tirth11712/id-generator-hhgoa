@@ -170,13 +170,17 @@ export default function App() {
   }, [name, sheetBlob, showToast]);
 
   /**
-   * One-pass Share to X:
-   * - Mobile: triggers native Web Share API with the PNG file attached & pre-filled text.
-   * - Desktop: copies image to clipboard & opens Twitter pre-filled composer in a new tab immediately.
+   * Share to X:
+   * - If an X Username is inputted, redirects directly to the user's X profile (e.g. x.com/username).
+   * - If no handle is entered, opens X with a pre-filled tweet intent composer.
    */
   const shareToX = useCallback(async () => {
-    const text = caption(title, handle);
-    const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    const cleanHandle = handle.replace(/^@/, "").trim();
+    
+    // Target URL: if handle exists -> user's X profile; else -> pre-filled tweet intent
+    const targetUrl = cleanHandle
+      ? `https://x.com/${encodeURIComponent(cleanHandle)}`
+      : `https://twitter.com/intent/tweet?text=${encodeURIComponent(caption(title))}`;
 
     // Open popup synchronously immediately on click to prevent popup blockers
     const popup = window.open("about:blank", "_blank");
@@ -185,11 +189,11 @@ export default function App() {
     const file = blob ? new File([blob], fileName(name), { type: "image/png" }) : null;
     const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
 
-    // Mobile / Native Share
+    // Mobile Native Share if supported
     if (file && nav.canShare?.({ files: [file] })) {
       try {
         if (popup) popup.close();
-        await nav.share({ files: [file], text });
+        await nav.share({ files: [file], text: caption(title, handle), url: targetUrl });
         return;
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") {
@@ -199,20 +203,20 @@ export default function App() {
       }
     }
 
-    // Copy to clipboard in background if supported
+    // Copy card image to clipboard for easy pasting
     if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
       try {
         await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
       } catch {
-        /* fallback handled by tweet redirect */
+        /* silent fallback */
       }
     }
 
-    // Direct redirect to pre-filled X composer
+    // Redirect popup or window to the target URL
     if (popup && !popup.closed) {
-      popup.location.href = tweetUrl;
+      popup.location.href = targetUrl;
     } else {
-      window.location.href = tweetUrl;
+      window.location.href = targetUrl;
     }
   }, [handle, name, title, sheetBlob]);
 
