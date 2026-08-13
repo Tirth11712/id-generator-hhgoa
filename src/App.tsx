@@ -14,9 +14,29 @@ import {
 
 const HASHTAG = "#FrameInGoa";
 
-const caption = (title: string, handle?: string) => {
+const CAPTION_TEMPLATES = [
+  (_name: string, role: string, title: string, tag: string) =>
+    `Just minted my Hacker House Goa 2026 builder pass ${tag}— certified ${title} 🥥\nBuilding ${role || "epic code"}. See you on the beach, builders! ${HASHTAG}`,
+  (_name: string, role: string, title: string, tag: string) =>
+    `Goa vibes & heavy code 🌴 ${tag}Officially checked in as a ${title} for Hacker House Goa 2026!\nStack: ${role || "Full Stack"}. Let's build together! ${HASHTAG}`,
+  (_name: string, _role: string, title: string, tag: string) =>
+    `Sun. Code. Builder. ⚡ ${tag}Claimed my Hacker House Goa 2026 pass as ${title}.\nReady to ship cool projects! ${HASHTAG}`,
+  (_name: string, role: string, title: string, tag: string) =>
+    `Locked in for Hacker House Goa 2026! 🚀 ${tag}Certified ${title} working on ${role || "cutting-edge tech"}.\nSee you in Goa! ${HASHTAG}`,
+];
+
+const caption = (name: string, role: string, title: string, handle?: string) => {
   const tag = handle ? `@${handle.replace(/^@/, "").trim()} ` : "";
-  return `Just minted my Hacker House Goa 2026 builder pass ${tag}— certified ${title} 🥥\n\nSee you on the beach, builders. ${HASHTAG}`;
+  const displayName = name.trim() || "Builder";
+  const displayRole = role.trim();
+
+  // Deterministic seed based on name + title so each user gets their own unique template line
+  let seed = 0;
+  for (const ch of displayName + title + displayRole) {
+    seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+  }
+  const templateIdx = seed % CAPTION_TEMPLATES.length;
+  return CAPTION_TEMPLATES[templateIdx]!(displayName, displayRole, title, tag);
 };
 
 const fileName = (name: string) =>
@@ -173,7 +193,7 @@ export default function App() {
    * - Desktop: Copies front card PNG to clipboard and opens Twitter pre-filled tweet composer.
    */
   const shareToX = useCallback(async () => {
-    const text = caption(title, handle);
+    const text = caption(name, role, title, handle);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
 
     const blob = await frontCardBlob();
