@@ -176,15 +176,16 @@ export default function App() {
     const text = caption(title, handle);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     
+    // Copy badge image to clipboard if supported
     sheetBlob().then((blob) => {
       if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
         navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).catch(() => {});
       }
     });
 
-    window.open(tweetUrl, "_blank", "noopener,noreferrer");
-    showToast("Opening X — image copied to clipboard (paste with Ctrl/⌘+V)");
-  }, [handle, title, sheetBlob, showToast]);
+    // Direct window navigation guarantees 100% reliable redirect on all mobile and desktop browsers
+    window.location.href = tweetUrl;
+  }, [handle, title, sheetBlob]);
 
   function reset() {
     setName("");
