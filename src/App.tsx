@@ -174,7 +174,10 @@ export default function App() {
   const shareToX = useCallback(() => {
     const text = caption(title, handle);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-    window.open(tweetUrl, "_blank");
+    const popup = window.open(tweetUrl, "_blank", "noopener,noreferrer");
+    if (!popup || popup.closed || typeof popup.closed === "undefined") {
+      window.location.href = tweetUrl;
+    }
   }, [handle, title]);
 
   function reset() {
