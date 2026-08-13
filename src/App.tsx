@@ -170,55 +170,25 @@ export default function App() {
   }, [name, sheetBlob, showToast]);
 
   /**
-   * Share to X:
-   * - If an X Username is inputted, redirects directly to the user's X profile (e.g. x.com/username).
-   * - If no handle is entered, opens X with a pre-filled tweet intent composer.
+   * One-pass Share to X:
+   * Instantly opens Twitter/X composer pre-filled with tweet caption & handle in 1 click.
+   * Copies the image to clipboard for easy 1-tap pasting. Zero prompts/choosers.
    */
-  const shareToX = useCallback(async () => {
-    const cleanHandle = handle.replace(/^@/, "").trim();
-    
-    // Target URL: if handle exists -> user's X profile; else -> pre-filled tweet intent
-    const targetUrl = cleanHandle
-      ? `https://x.com/${encodeURIComponent(cleanHandle)}`
-      : `https://twitter.com/intent/tweet?text=${encodeURIComponent(caption(title))}`;
+  const shareToX = useCallback(() => {
+    const text = caption(title, handle);
+    const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
 
-    // Open popup synchronously immediately on click to prevent popup blockers
-    const popup = window.open("about:blank", "_blank");
-
-    const blob = await sheetBlob();
-    const file = blob ? new File([blob], fileName(name), { type: "image/png" }) : null;
-    const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-
-    // Mobile Native Share if supported
-    if (file && nav.canShare?.({ files: [file] })) {
-      try {
-        if (popup) popup.close();
-        await nav.share({ files: [file], text: caption(title, handle), url: targetUrl });
-        return;
-      } catch (e) {
-        if (e instanceof DOMException && e.name === "AbortError") {
-          if (popup) popup.close();
-          return;
-        }
+    // 1. Instantly copy card image to clipboard in background
+    sheetBlob().then((blob) => {
+      if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
+        navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).catch(() => {});
       }
-    }
+    });
 
-    // Copy card image to clipboard for easy pasting
-    if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
-      try {
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      } catch {
-        /* silent fallback */
-      }
-    }
-
-    // Redirect popup or window to the target URL
-    if (popup && !popup.closed) {
-      popup.location.href = targetUrl;
-    } else {
-      window.location.href = targetUrl;
-    }
-  }, [handle, name, title, sheetBlob]);
+    // 2. Direct 1-click open of the pre-filled tweet composer window (no prompts / no choosers)
+    window.open(tweetUrl, "_blank", "noopener,noreferrer");
+    showToast("Opened pre-filled tweet — image copied to clipboard (paste with Ctrl/⌘+V)");
+  }, [handle, title, sheetBlob, showToast]);
 
   function reset() {
     setName("");
