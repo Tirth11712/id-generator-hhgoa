@@ -356,7 +356,7 @@ export default function App() {
                 </span>
               </button>
 
-              <div className="mt-4 sm:mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="mt-4 sm:mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                   <label className={legend} htmlFor="hh-name">
                     Name
@@ -382,22 +382,23 @@ export default function App() {
                     className={field}
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className={legend} htmlFor="hh-handle">
-                    X Username
-                  </label>
-                  <input
-                    id="hh-handle"
-                    value={handle}
-                    onChange={(e) => setHandle(uSlice(e.target.value.replace(/\s+/g, ""), 20))}
-                    placeholder="@adalovelace"
-                    autoComplete="username"
-                    className={field}
-                  />
-                </div>
               </div>
 
-              <div className="mt-5 space-y-2">
+              <div className="mt-4 sm:mt-5 space-y-2">
+                <label className={legend} htmlFor="hh-handle">
+                  X Username
+                </label>
+                <input
+                  id="hh-handle"
+                  value={handle}
+                  onChange={(e) => setHandle(uSlice(e.target.value.replace(/\s+/g, ""), 20))}
+                  placeholder="@adalovelace"
+                  autoComplete="username"
+                  className={field}
+                />
+              </div>
+
+              <div className="mt-4 sm:mt-5 space-y-2">
                 <div className="flex items-baseline justify-between gap-2">
                   <label className={legend} htmlFor="hh-title">
                     Builder title
