@@ -342,30 +342,28 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   ctx.clearRect(0, 0, W, H);
   ctx.imageSmoothingQuality = "high";
 
-  ctx.fillStyle = GREEN;
+  // Deep tropical background fill
+  ctx.fillStyle = DEEP;
   ctx.fillRect(0, 0, W, H);
 
+  // Background artwork header & footer if present
   if (input.art) {
     const src = input.art;
     const sx = src.naturalWidth || src.width;
     const sy = src.naturalHeight || src.height;
-    const k = sy / TPL_H; // artwork pixels per template unit
+    const k = sy / TPL_H;
 
-    // Bamboo bar across the top. The mascot's head overlaps the bar on the
-    // left of the artwork, so we sample a clean slice from the right and
-    // mirror it about the centre to rebuild a full-width bar.
-    const topH = t(112);
+    const topH = t(140);
     const sliceX = 620;
     const sliceW = TPL_W - sliceX;
-    ctx.drawImage(src, sliceX * k, 0, sliceW * k, 112 * k, 0, 0, W / 2 + 1, topH);
+    ctx.drawImage(src, sliceX * k, 0, sliceW * k, 140 * k, 0, 0, W / 2 + 1, topH);
     ctx.save();
     ctx.translate(W, 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(src, sliceX * k, 0, sliceW * k, 112 * k, 0, 0, W / 2 + 1, topH);
+    ctx.drawImage(src, sliceX * k, 0, sliceW * k, 140 * k, 0, 0, W / 2 + 1, topH);
     ctx.restore();
 
-    // Beach scene + floral border along the bottom.
-    const footTplY = 1085;
+    const footTplY = 1120;
     const footH = t(TPL_H - footTplY);
     ctx.drawImage(
       src,
@@ -382,183 +380,161 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
 
   const cx = W / 2;
 
-  tracked(ctx, "SUN. CODE. BUILDER.", cx, t(215), 26, 6, CREAM);
+  // Header Branding
+  tracked(ctx, "OFFICIAL BUILDER CREDENTIAL", cx, t(160), 22, 6, YELLOW);
 
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  const display = `"Archivo Black", ${MONO}`;
+  const displayFont = `"Archivo Black", ${MONO}`;
 
   ctx.fillStyle = CREAM;
-  fitText(ctx, "HACKER HOUSE", t(900), 96, 40, "400", display);
+  fitText(ctx, "HACKER HOUSE GOA", t(920), 84, 38, "400", displayFont);
   ctx.textAlign = "center";
-  ctx.fillText("HACKER HOUSE", cx, t(330));
+  ctx.fillText("HACKER HOUSE GOA", cx, t(250));
 
-  ctx.fillStyle = YELLOW;
-  fitText(ctx, "GOA · 2026", t(900), 76, 30, "400", display);
-  ctx.textAlign = "center";
-  ctx.fillText("GOA · 2026", cx, t(420));
-
-  // #FRAMEINGOA pill, matching the front.
-  ctx.font = `700 ${t(38)}px ${MONO}`;
-  const tag = "#FRAMEINGOA";
+  // Pill badge
+  ctx.font = `700 ${t(34)}px ${MONO}`;
+  const tag = "#FRAMEINGOA · 2026";
   const tagW = ctx.measureText(tag).width;
-  const pillW = tagW + t(80);
-  const pillH = t(76);
-  const pillY = t(462);
+  const pillW = tagW + t(70);
+  const pillH = t(66);
+  const pillY = t(285);
   ctx.fillStyle = PINK;
   roundRect(ctx, cx - pillW / 2, pillY, pillW, pillH, pillH / 2);
   ctx.fill();
-  ctx.fillStyle = YELLOW;
+  ctx.fillStyle = CREAM;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(tag, cx, pillY + pillH / 2 + 2);
 
-  // ---- Credential panel ----
-  const panel = { x: t(84), y: t(570), w: t(918), h: t(462), r: t(34) };
+  // Main Credential Card Container
+  const cardW = t(940);
+  const cardH = t(700);
+  const cardX = cx - cardW / 2;
+  const cardY = t(385);
+  const cardR = t(32);
+
+  // Card Outer Shadow / Border
   ctx.fillStyle = PINK;
-  roundRect(ctx, panel.x - 10, panel.y - 10, panel.w + 20, panel.h + 20, panel.r + 10);
-  ctx.fill();
-  ctx.fillStyle = CREAM;
-  roundRect(ctx, panel.x, panel.y, panel.w, panel.h, panel.r);
+  roundRect(ctx, cardX - 8, cardY - 8, cardW + 16, cardH + 16, cardR + 8);
   ctx.fill();
 
-  const px = panel.x + t(46);
-  const innerW = panel.w - t(92);
-  ctx.textAlign = "left";
+  // Card Body (Cream)
+  ctx.fillStyle = CREAM;
+  roundRect(ctx, cardX, cardY, cardW, cardH, cardR);
+  ctx.fill();
+
+  const px = cardX + t(48);
+  const innerW = cardW - t(96);
   ctx.textBaseline = "alphabetic";
 
-  const displayName = (input.name.trim() || "YOUR NAME").toUpperCase();
-  const displayRole = (input.role.trim() || "YOUR STACK").toUpperCase();
+  const displayName = (input.name.trim() || "BUILDER NAME").toUpperCase();
+  const displayRole = (input.role.trim() || "BUILDER STACK").toUpperCase();
   const displayTitle = (input.title.trim() || BUILDER_TITLES[0]!).toUpperCase();
+  const pid = passId(`${input.name}|${input.role}|${input.title}`);
 
-  const muted = (text: string, x: number, y: number) => {
-    ctx.font = `700 18px ${MONO}`;
-    ctx.fillStyle = "#0E4534";
-    ctx.globalAlpha = 0.55;
-    ctx.textAlign = "left";
-    // Manual letter-spacing for muted labels
-    let cx2 = x;
-    for (const ch of text) {
-      ctx.fillText(ch, cx2, y);
-      cx2 += ctx.measureText(ch).width + 3;
-    }
-    ctx.globalAlpha = 1;
-  };
+  let cy = cardY + t(64);
 
-  // Flowing cursor from top of panel
-  let cursor = panel.y + t(52);
+  // Section 1: BUILDER NAME
+  ctx.font = `700 ${t(16)}px ${MONO}`;
+  ctx.fillStyle = GREEN;
+  ctx.globalAlpha = 0.6;
+  ctx.textAlign = "left";
+  ctx.fillText("VERIFIED BUILDER", px, cy);
+  ctx.globalAlpha = 1.0;
 
-  // "THIS PASS CERTIFIES"
-  muted("THIS PASS CERTIFIES", px, cursor);
-  cursor += t(56);
-
-  // Name — large, fitted
-  fitText(ctx, displayName, innerW, 52, 22);
+  cy += t(52);
+  fitText(ctx, displayName, innerW, 54, 26, "700", MONO);
   ctx.fillStyle = INK;
   ctx.textAlign = "left";
-  ctx.fillText(displayName, px, cursor);
-  cursor += t(48);
+  ctx.fillText(displayName, px, cy);
 
-  // "AS A CERTIFIED"
-  muted("AS A CERTIFIED", px, cursor);
-  cursor += t(42);
+  // Divider
+  cy += t(32);
+  ctx.strokeStyle = "rgba(16,16,16,0.15)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(px, cy);
+  ctx.lineTo(px + innerW, cy);
+  ctx.stroke();
 
-  // Builder title — wraps to at most 2 lines
-  let ts = 30;
+  // Section 2: TITLE (Highlight Box)
+  cy += t(42);
+  ctx.font = `700 ${t(16)}px ${MONO}`;
+  ctx.fillStyle = GREEN;
+  ctx.globalAlpha = 0.6;
+  ctx.fillText("HONORARY TITLE", px, cy);
+  ctx.globalAlpha = 1.0;
+
+  cy += t(42);
+  let ts = 28;
   let lines: string[] = [];
-  while (ts > 15) {
+  while (ts > 16) {
     ctx.font = `700 ${ts}px ${MONO}`;
-    lines = wrap(ctx, displayTitle, innerW);
+    lines = wrap(ctx, displayTitle, innerW - t(40));
     if (lines.length <= 2) break;
     ts -= 1;
   }
   lines = lines.slice(0, 2);
-  const lineH = Math.round(ts * 1.35);
+  const lineH = Math.round(ts * 1.3);
+  const titleBoxH = lines.length * lineH + t(24);
+
+  // Title Box Fill (Deep Dark Green Card inside Cream)
+  ctx.fillStyle = DEEP;
+  roundRect(ctx, px, cy - t(26), innerW, titleBoxH, t(16));
+  ctx.fill();
+
+  ctx.fillStyle = YELLOW;
+  ctx.textAlign = "left";
+  lines.forEach((line, i) => {
+    ctx.fillText(line, px + t(20), cy + i * lineH + t(6));
+  });
+
+  cy += titleBoxH + t(32);
+
+  // Section 3: STACK / ROLE & PASS ID (2 Columns)
+  const col1W = innerW * 0.58;
+  const col2X = px + innerW * 0.62;
+  const col2W = innerW * 0.38;
+
+  ctx.font = `700 ${t(16)}px ${MONO}`;
+  ctx.fillStyle = GREEN;
+  ctx.globalAlpha = 0.6;
+  ctx.fillText("PRIMARY STACK", px, cy);
+  ctx.fillText("PASS ID", col2X, cy);
+  ctx.globalAlpha = 1.0;
+
+  cy += t(40);
+  fitText(ctx, displayRole, col1W, 28, 15);
+  ctx.fillStyle = INK;
+  ctx.fillText(displayRole, px, cy);
+
+  fitText(ctx, pid, col2W, 28, 15);
   ctx.fillStyle = PINK;
-  ctx.textAlign = "left";
-  lines.forEach((l, i) => ctx.fillText(l, px, cursor + i * lineH));
-  cursor += (lines.length - 1) * lineH + t(30);
+  ctx.fillText(pid, col2X, cy);
 
-  // Divider rule
-  ctx.strokeStyle = "rgba(14,69,52,0.2)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(px, cursor);
-  ctx.lineTo(px + innerW, cursor);
-  ctx.stroke();
-  cursor += t(36);
-
-  // Two-column row: STACK/ROLE + PASS ID
-  const leftColW = innerW * 0.56;
-  const rightColX = px + innerW * 0.62;
-  const rightColW = innerW * 0.38;
-
-  // Left column: STACK / ROLE
-  muted("STACK / ROLE", px, cursor);
-  const valueY = cursor + t(36);
-  fitText(ctx, displayRole, leftColW, 26, 13);
-  ctx.fillStyle = INK;
-  ctx.textAlign = "left";
-  ctx.fillText(displayRole, px, valueY);
-
-  // Right column: PASS ID
-  const pid = passId(`${input.name}|${input.role}|${input.title}`);
-  muted("PASS ID", rightColX, cursor);
-  fitText(ctx, pid, rightColW, 26, 13);
-  ctx.fillStyle = INK;
-  ctx.textAlign = "left";
-  ctx.fillText(pid, rightColX, valueY);
-  cursor = valueY + t(30);
-
-  // Decorative barcode along the foot of the panel
-  const bcH = t(44);
-  // Clamp barcode so it stays inside the panel
-  const bcMaxY = panel.y + panel.h - panel.r - bcH - 4;
-  const bcY = Math.min(cursor, bcMaxY);
-  let seed = 0x2545f4;
-  for (const ch of displayName + displayRole + displayTitle) {
+  // Section 4: Barcode at foot of card
+  cy += t(52);
+  const bcH = t(56);
+  let seed = 0x811c9dc5;
+  for (const ch of displayName + displayRole + displayTitle + pid) {
     seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
   }
   ctx.fillStyle = INK;
   let bx = px;
   while (bx < px + innerW) {
     seed = (seed * 1103515245 + 12345) >>> 0;
-    const barW = 2 + (seed % 6);
+    const barW = 2 + (seed % 7);
     const gap = 3 + ((seed >> 9) % 6);
-    ctx.globalAlpha = 0.45 + ((seed >> 17) % 50) / 100;
-    ctx.fillRect(bx, bcY, Math.min(barW, px + innerW - bx), bcH);
+    ctx.globalAlpha = 0.6 + ((seed >> 17) % 35) / 100;
+    ctx.fillRect(bx, cy, Math.min(barW, px + innerW - bx), bcH);
     bx += barW + gap;
   }
-  ctx.globalAlpha = 1;
-  // Bottom tagline — draw a dark backdrop so it reads clearly over the artwork.
-  const taglineY = H - t(390);
-  const taglineSize = 24;
-  const taglineGap = 5;
-  const taglineText = "HACKERHOUSE.GOA · BUILDER PASS 2026";
+  ctx.globalAlpha = 1.0;
 
-  // Measure total width to size the backdrop
-  ctx.font = `700 ${taglineSize}px ${MONO}`;
-  const taglineChars = [...taglineText];
-  const taglineTotalW =
-    taglineChars.reduce((w, ch) => w + ctx.measureText(ch).width + taglineGap, 0) - taglineGap;
-  const taglinePadX = 28;
-  const taglinePadY = 14;
-  const taglineBgH = taglineSize + taglinePadY * 2;
-
-  ctx.fillStyle = DEEP;
-  ctx.globalAlpha = 0.75;
-  roundRect(
-    ctx,
-    cx - taglineTotalW / 2 - taglinePadX,
-    taglineY - taglineSize / 2 - taglinePadY,
-    taglineTotalW + taglinePadX * 2,
-    taglineBgH,
-    taglineBgH / 2,
-  );
-  ctx.fill();
-  ctx.globalAlpha = 1;
-
-  tracked(ctx, taglineText, cx, taglineY + taglineSize * 0.35, taglineSize, taglineGap, CREAM);
+  // Footer Tagline
+  const footerY = H - t(150);
+  tracked(ctx, "HACKER HOUSE GOA · BUILDER PASS 2026", cx, footerY, 22, 5, CREAM);
 }
 
 /**
