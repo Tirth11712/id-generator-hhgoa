@@ -403,20 +403,23 @@ export default function App() {
                 </p>
               ) : null}
 
-              <div className="mt-4 sm:mt-5 flex flex-col sm:flex-row gap-3">
+              <div className="mt-4 sm:mt-5 flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={download}
                   disabled={!hasPhoto}
-                  className={`${action} bg-[color:var(--hh-yellow)] text-[color:var(--hh-ink)]`}
+                  className={`${action} w-full bg-[color:var(--hh-yellow)] text-[color:var(--hh-ink)]`}
                 >
                   📥 DOWNLOAD
                 </button>
+                <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-[color:var(--hh-ink)]/40 px-1">
+                  OR
+                </span>
                 <button
                   type="button"
                   onClick={shareToX}
                   disabled={!hasPhoto}
-                  className={`${action} bg-[color:var(--hh-pink)] text-[color:var(--hh-cream)]`}
+                  className={`${action} w-full bg-[color:var(--hh-pink)] text-[color:var(--hh-cream)]`}
                 >
                   🚀 SHARE TO X
                 </button>
