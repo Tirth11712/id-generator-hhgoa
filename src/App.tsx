@@ -170,22 +170,51 @@ export default function App() {
   }, [name, sheetBlob, showToast]);
 
   /**
-   * Directly redirects to X with pre-filled caption & handle tag in one click.
+   * One-pass Share to X:
+   * - Mobile: triggers native Web Share API with the PNG file attached & pre-filled text.
+   * - Desktop: copies image to clipboard & opens Twitter pre-filled composer in a new tab immediately.
    */
-  const shareToX = useCallback(() => {
+  const shareToX = useCallback(async () => {
     const text = caption(title, handle);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-    
-    // Copy badge image to clipboard if supported
-    sheetBlob().then((blob) => {
-      if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
-        navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).catch(() => {});
-      }
-    });
 
-    // Direct window navigation guarantees 100% reliable redirect on all mobile and desktop browsers
-    window.location.href = tweetUrl;
-  }, [handle, title, sheetBlob]);
+    // Open popup synchronously immediately on click to prevent popup blockers
+    const popup = window.open("about:blank", "_blank");
+
+    const blob = await sheetBlob();
+    const file = blob ? new File([blob], fileName(name), { type: "image/png" }) : null;
+    const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+
+    // Mobile / Native Share
+    if (file && nav.canShare?.({ files: [file] })) {
+      try {
+        if (popup) popup.close();
+        await nav.share({ files: [file], text });
+        return;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") {
+          if (popup) popup.close();
+          return;
+        }
+      }
+    }
+
+    // Copy to clipboard in background if supported
+    if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      } catch {
+        /* fallback handled by tweet redirect */
+      }
+    }
+
+    // Direct redirect to pre-filled X composer
+    if (popup && !popup.closed) {
+      popup.location.href = tweetUrl;
+    } else {
+      window.location.href = tweetUrl;
+    }
+  }, [handle, name, title, sheetBlob]);
 
   function reset() {
     setName("");
