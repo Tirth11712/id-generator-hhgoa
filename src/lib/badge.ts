@@ -381,42 +381,42 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   const cx = W / 2;
 
   // Header Branding
-  tracked(ctx, "OFFICIAL BUILDER CREDENTIAL", cx, t(160), 22, 6, YELLOW);
+  tracked(ctx, "OFFICIAL BUILDER CREDENTIAL", cx, t(170), 20, 5, YELLOW);
 
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   const displayFont = `"Archivo Black", ${MONO}`;
 
   ctx.fillStyle = CREAM;
-  fitText(ctx, "HACKER HOUSE GOA", t(920), 84, 38, "400", displayFont);
+  fitText(ctx, "HACKER HOUSE GOA", t(900), 72, 34, "400", displayFont);
   ctx.textAlign = "center";
-  ctx.fillText("HACKER HOUSE GOA", cx, t(250));
+  ctx.fillText("HACKER HOUSE GOA", cx, t(240));
 
   // Pill badge
-  ctx.font = `700 ${t(34)}px ${MONO}`;
+  ctx.font = `700 ${t(28)}px ${MONO}`;
   const tag = "#FRAMEINGOA · 2026";
   const tagW = ctx.measureText(tag).width;
-  const pillW = tagW + t(70);
-  const pillH = t(66);
-  const pillY = t(285);
+  const pillW = tagW + t(60);
+  const pillH = t(56);
+  const pillY = t(268);
   ctx.fillStyle = PINK;
   roundRect(ctx, cx - pillW / 2, pillY, pillW, pillH, pillH / 2);
   ctx.fill();
   ctx.fillStyle = CREAM;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(tag, cx, pillY + pillH / 2 + 2);
+  ctx.fillText(tag, cx, pillY + pillH / 2 + 1);
 
   // Main Credential Card Container
-  const cardW = t(940);
-  const cardH = t(700);
+  const cardW = t(920);
+  const cardH = t(660);
   const cardX = cx - cardW / 2;
-  const cardY = t(385);
-  const cardR = t(32);
+  const cardY = t(348);
+  const cardR = t(28);
 
   // Card Outer Shadow / Border
   ctx.fillStyle = PINK;
-  roundRect(ctx, cardX - 8, cardY - 8, cardW + 16, cardH + 16, cardR + 8);
+  roundRect(ctx, cardX - 6, cardY - 6, cardW + 12, cardH + 12, cardR + 6);
   ctx.fill();
 
   // Card Body (Cream)
@@ -424,8 +424,8 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   roundRect(ctx, cardX, cardY, cardW, cardH, cardR);
   ctx.fill();
 
-  const px = cardX + t(48);
-  const innerW = cardW - t(96);
+  const px = cardX + t(44);
+  const innerW = cardW - t(88);
   ctx.textBaseline = "alphabetic";
 
   const displayName = (input.name.trim() || "BUILDER NAME").toUpperCase();
@@ -433,89 +433,89 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   const displayTitle = (input.title.trim() || BUILDER_TITLES[0]!).toUpperCase();
   const pid = passId(`${input.name}|${input.role}|${input.title}`);
 
-  let cy = cardY + t(64);
+  let cy = cardY + t(52);
 
   // Section 1: BUILDER NAME
-  ctx.font = `700 ${t(16)}px ${MONO}`;
+  ctx.font = `700 ${t(15)}px ${MONO}`;
   ctx.fillStyle = GREEN;
-  ctx.globalAlpha = 0.6;
+  ctx.globalAlpha = 0.65;
   ctx.textAlign = "left";
   ctx.fillText("VERIFIED BUILDER", px, cy);
   ctx.globalAlpha = 1.0;
 
-  cy += t(52);
-  fitText(ctx, displayName, innerW, 54, 26, "700", MONO);
+  cy += t(44);
+  fitText(ctx, displayName, innerW, 46, 22, "700", MONO);
   ctx.fillStyle = INK;
   ctx.textAlign = "left";
   ctx.fillText(displayName, px, cy);
 
   // Divider
-  cy += t(32);
+  cy += t(24);
   ctx.strokeStyle = "rgba(16,16,16,0.15)";
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(px, cy);
   ctx.lineTo(px + innerW, cy);
   ctx.stroke();
 
   // Section 2: TITLE (Highlight Box)
-  cy += t(42);
-  ctx.font = `700 ${t(16)}px ${MONO}`;
+  cy += t(34);
+  ctx.font = `700 ${t(15)}px ${MONO}`;
   ctx.fillStyle = GREEN;
-  ctx.globalAlpha = 0.6;
+  ctx.globalAlpha = 0.65;
   ctx.fillText("HONORARY TITLE", px, cy);
   ctx.globalAlpha = 1.0;
 
-  cy += t(42);
-  let ts = 28;
+  cy += t(36);
+  let ts = 24;
   let lines: string[] = [];
-  while (ts > 16) {
+  while (ts > 14) {
     ctx.font = `700 ${ts}px ${MONO}`;
-    lines = wrap(ctx, displayTitle, innerW - t(40));
+    lines = wrap(ctx, displayTitle, innerW - t(36));
     if (lines.length <= 2) break;
     ts -= 1;
   }
   lines = lines.slice(0, 2);
-  const lineH = Math.round(ts * 1.3);
-  const titleBoxH = lines.length * lineH + t(24);
+  const lineH = Math.round(ts * 1.28);
+  const titleBoxH = lines.length * lineH + t(20);
 
   // Title Box Fill (Deep Dark Green Card inside Cream)
   ctx.fillStyle = DEEP;
-  roundRect(ctx, px, cy - t(26), innerW, titleBoxH, t(16));
+  roundRect(ctx, px, cy - t(22), innerW, titleBoxH, t(14));
   ctx.fill();
 
   ctx.fillStyle = YELLOW;
   ctx.textAlign = "left";
   lines.forEach((line, i) => {
-    ctx.fillText(line, px + t(20), cy + i * lineH + t(6));
+    ctx.fillText(line, px + t(18), cy + i * lineH + t(4));
   });
 
-  cy += titleBoxH + t(32);
+  cy += titleBoxH + t(26);
 
   // Section 3: STACK / ROLE & PASS ID (2 Columns)
   const col1W = innerW * 0.58;
   const col2X = px + innerW * 0.62;
   const col2W = innerW * 0.38;
 
-  ctx.font = `700 ${t(16)}px ${MONO}`;
+  ctx.font = `700 ${t(15)}px ${MONO}`;
   ctx.fillStyle = GREEN;
-  ctx.globalAlpha = 0.6;
+  ctx.globalAlpha = 0.65;
   ctx.fillText("PRIMARY STACK", px, cy);
   ctx.fillText("PASS ID", col2X, cy);
   ctx.globalAlpha = 1.0;
 
-  cy += t(40);
-  fitText(ctx, displayRole, col1W, 28, 15);
+  cy += t(34);
+  fitText(ctx, displayRole, col1W, 24, 14);
   ctx.fillStyle = INK;
   ctx.fillText(displayRole, px, cy);
 
-  fitText(ctx, pid, col2W, 28, 15);
+  fitText(ctx, pid, col2W, 24, 14);
   ctx.fillStyle = PINK;
   ctx.fillText(pid, col2X, cy);
 
   // Section 4: Barcode at foot of card
-  cy += t(52);
-  const bcH = t(56);
+  cy += t(40);
+  const bcH = t(44);
   let seed = 0x811c9dc5;
   for (const ch of displayName + displayRole + displayTitle + pid) {
     seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
@@ -532,9 +532,9 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   }
   ctx.globalAlpha = 1.0;
 
-  // Footer Tagline
-  const footerY = H - t(150);
-  tracked(ctx, "HACKER HOUSE GOA · BUILDER PASS 2026", cx, footerY, 22, 5, CREAM);
+  // Footer Tagline (positioned well clear of card and bottom floral artwork)
+  const footerY = t(1055);
+  tracked(ctx, "HACKER HOUSE GOA · BUILDER PASS 2026", cx, footerY, 18, 4, CREAM);
 }
 
 /**
