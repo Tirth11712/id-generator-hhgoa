@@ -169,16 +169,29 @@ export default function App() {
 
   /**
    * One-pass Share to X:
-   * Direct 1-click redirect to Twitter/X pre-filled tweet composer.
-   * Never opens Windows system share dialogs.
+   * - Mobile: Uses Web Share API to attach the front card PNG directly to the X / Twitter app.
+   * - Desktop: Copies front card PNG to clipboard and opens Twitter pre-filled tweet composer.
    */
   const shareToX = useCallback(async () => {
     const text = caption(title, handle);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
 
     const blob = await frontCardBlob();
+    const file = blob ? new File([blob], fileName(name), { type: "image/png" }) : null;
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
 
-    // Copy PNG image to clipboard in background for fast 1-tap pasting
+    // On mobile devices, native share attaches the actual PNG card image directly to Twitter app post
+    if (isMobile && file && nav.canShare?.({ files: [file] })) {
+      try {
+        await nav.share({ files: [file], text });
+        return;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+      }
+    }
+
+    // On Desktop: Copy PNG image to clipboard for instant 1-tap paste (Ctrl+V) into tweet box
     if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
       try {
         await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
@@ -187,12 +200,11 @@ export default function App() {
       }
     }
 
-    // Directly open pre-filled tweet composer (no Windows Share dialog prompt)
     const popup = window.open(tweetUrl, "_blank", "noopener,noreferrer");
     if (!popup || popup.closed || typeof popup.closed === "undefined") {
       window.location.href = tweetUrl;
     }
-  }, [handle, title, frontCardBlob]);
+  }, [handle, name, title, frontCardBlob]);
 
   function reset() {
     setName("");
