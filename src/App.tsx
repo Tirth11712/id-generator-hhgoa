@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import artUrl from "./assets/hh-goa-bg.jpg";
 import cardTemplateUrl from "./assets/hh-goa-card-template.jpeg";
+import cardBackTemplateUrl from "./assets/hh-goa-card-back-template.png";
 
 import {
   composeSheet,
@@ -32,6 +33,7 @@ export default function App() {
   const frontRef = useRef<HTMLCanvasElement>(null);
   const backRef = useRef<HTMLCanvasElement>(null);
   const templateRef = useRef<HTMLImageElement | null>(null);
+  const backTemplateRef = useRef<HTMLImageElement | null>(null);
   const photoRef = useRef<HTMLImageElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -54,12 +56,14 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [template] = await Promise.all([
+      const [template, backTemplate] = await Promise.all([
         loadImage(cardTemplateUrl).catch(() => null),
+        loadImage(cardBackTemplateUrl).catch(() => null),
         (document as Document & { fonts?: FontFaceSet }).fonts?.ready.catch(() => null),
       ]);
       if (cancelled) return;
       templateRef.current = template;
+      backTemplateRef.current = backTemplate;
       setReady(true);
     })();
     return () => {
@@ -83,7 +87,12 @@ export default function App() {
   useEffect(() => {
     cancelAnimationFrame(renderRaf.current);
     renderRaf.current = requestAnimationFrame(() => {
-      const input = { ...badgeInput, photo: photoRef.current, art: templateRef.current };
+      const input = {
+        ...badgeInput,
+        photo: photoRef.current,
+        art: templateRef.current,
+        backArt: backTemplateRef.current,
+      };
       if (frontRef.current) drawBadge(frontRef.current, input);
       if (backRef.current) drawBadgeBack(backRef.current, input);
     });

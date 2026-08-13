@@ -224,8 +224,10 @@ function rule(
 export type BadgeInput = {
   /** null leaves the artwork's own "YOUR PHOTO HERE" placeholder visible. */
   photo: (CanvasImageSource & { width: number; height: number }) | null;
-  /** The master template artwork; null falls back to a plain brand gradient. */
+  /** The master template artwork for front face. */
   art: HTMLImageElement | null;
+  /** Dedicated master template artwork for back face. */
+  backArt?: HTMLImageElement | null;
   name: string;
   role: string;
   title: string;
@@ -343,12 +345,13 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
   ctx.clearRect(0, 0, W, H);
   ctx.imageSmoothingQuality = "high";
 
-  // Deep tropical background fill
-  ctx.fillStyle = DEEP;
-  ctx.fillRect(0, 0, W, H);
+  // Render the dedicated back artwork template
+  if (input.backArt) {
+    ctx.drawImage(input.backArt, 0, 0, W, H);
+  } else if (input.art) {
+    ctx.fillStyle = DEEP;
+    ctx.fillRect(0, 0, W, H);
 
-  // Background artwork header & footer if present
-  if (input.art) {
     const src = input.art;
     const sx = src.naturalWidth || src.width;
     const sy = src.naturalHeight || src.height;
@@ -364,7 +367,6 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
     ctx.drawImage(src, sliceX * k, 0, sliceW * k, 140 * k, 0, 0, W / 2 + 1, topH);
     ctx.restore();
 
-    // Beach scene + palm trees along the bottom (starts at Y=1040 for full visibility)
     const footTplY = 1040;
     const footH = t(TPL_H - footTplY);
     ctx.drawImage(
@@ -378,6 +380,9 @@ export function drawBadgeBack(canvas: HTMLCanvasElement, input: BadgeInput) {
       W,
       footH,
     );
+  } else {
+    ctx.fillStyle = DEEP;
+    ctx.fillRect(0, 0, W, H);
   }
 
   const cx = W / 2;
