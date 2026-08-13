@@ -1,230 +1,332 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import artUrl from "./assets/hh-goa-square-frame.png";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import artUrl from "./assets/hh-goa-bg.jpg";
 import cardTemplateUrl from "./assets/hh-goa-card-template.jpeg";
-import guyUrl from "./assets/hh-guy-lean.png";
-import revealVideoUrl from "./assets/reveal-video.mp4";
+
 import {
+  composeSheet,
   drawBadge,
+  drawBadgeBack,
   loadImage,
   loadImageFromFile,
   pickBuilderTitle,
   BUILDER_TITLES,
 } from "./lib/badge";
 
-/** Time in video when card appears */
-const CARD_CUE_MS = 2500;
+const HASHTAG = "#FrameInGoa";
 
-const CAPTION = (title: string) =>
-  `Just minted my Hacker House Goa 2026 builder pass — certified ${title} 🥥\n\nSee you on the beach, builders. #FrameInGoa`;
+const caption = (title: string) =>
+  `Just minted my Hacker House Goa 2026 builder pass — certified ${title} 🥥\n\nSee you on the beach, builders. ${HASHTAG}`;
+
+const fileName = (name: string) =>
+  `hh-goa-2026-${(name.trim() || "builder").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.png`;
+
+/** Unicode-safe string truncation that never splits multi-byte characters. */
+const uSlice = (s: string, max: number) => {
+  const chars = [...s];
+  return chars.length <= max ? s : chars.slice(0, max).join("");
+};
 
 export default function App() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const cardTemplateRef = useRef<HTMLImageElement | null>(null);
-  const guyRef = useRef<HTMLImageElement | null>(null);
+  const frontRef = useRef<HTMLCanvasElement>(null);
+  const backRef = useRef<HTMLCanvasElement>(null);
+  const templateRef = useRef<HTMLImageElement | null>(null);
   const photoRef = useRef<HTMLImageElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const dragCounter = useRef(0);
+  const renderRaf = useRef(0);
 
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [title, setTitle] = useState(BUILDER_TITLES[0]!);
+  const [titleTouched, setTitleTouched] = useState(false);
   const [hasPhoto, setHasPhoto] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
-
-  // Flow steps: "edit" (live form) | "reveal" (video + hanging card) | "result" (main result page)
-  const [viewMode, setViewMode] = useState<"edit" | "reveal" | "result">("edit");
-  const [cardImgData, setCardImgData] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [side, setSide] = useState<"front" | "back">("front");
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [cardTemplate, guy] = await Promise.all([
+      const [template] = await Promise.all([
         loadImage(cardTemplateUrl).catch(() => null),
-        loadImage(guyUrl).catch(() => null),
+        (document as Document & { fonts?: FontFaceSet }).fonts?.ready.catch(() => null),
       ]);
-      cardTemplateRef.current = cardTemplate;
-      guyRef.current = guy;
-      try {
-        await (document as Document & { fonts?: FontFaceSet }).fonts?.ready;
-      } catch {
-        /* fonts optional */
-      }
-      if (!cancelled) setReady(true);
+      if (cancelled) return;
+      templateRef.current = template;
+      setReady(true);
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const render = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    drawBadge(canvas, {
+  // Debounced canvas rendering via rAF to prevent typing lag.
+  const badgeInput = useMemo(
+    () => ({
       photo: photoRef.current,
-      art: cardTemplateRef.current,
-      guy: guyRef.current,
+      art: templateRef.current,
       name,
       role,
       title,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [name, role, title, ready, hasPhoto],
+  );
+
+  useEffect(() => {
+    cancelAnimationFrame(renderRaf.current);
+    renderRaf.current = requestAnimationFrame(() => {
+      const input = { ...badgeInput, photo: photoRef.current, art: templateRef.current };
+      if (frontRef.current) drawBadge(frontRef.current, input);
+      if (backRef.current) drawBadgeBack(backRef.current, input);
     });
-  }, [name, role, title]);
-
-  // Real-time canvas updates whenever input fields change
-  useEffect(() => {
-    if (ready) render();
-  }, [ready, hasPhoto, render]);
+    return () => cancelAnimationFrame(renderRaf.current);
+  }, [badgeInput]);
 
   useEffect(() => {
-    setTitle(pickBuilderTitle(`${name}|${role}`));
-  }, [name, role]);
+    if (!titleTouched) setTitle(pickBuilderTitle(`${name}|${role}`));
+  }, [name, role, titleTouched]);
 
-  async function onFile(file?: File | null) {
+  const showToast = useCallback((msg: string) => {
+    clearTimeout(toastTimer.current);
+    setToast(msg);
+    toastTimer.current = setTimeout(() => setToast(null), 2600);
+  }, []);
+
+  const onFile = useCallback(async (file?: File | null) => {
     if (!file) return;
+    if (!/^image\//.test(file.type) && !/\.(heic|heif)$/i.test(file.name)) {
+      setError("That's not an image. Try a JPG, PNG or HEIC.");
+      return;
+    }
+    // Clear the file input so re-selecting the same file triggers onChange.
+    if (inputRef.current) inputRef.current.value = "";
     setBusy(true);
     setError(null);
     try {
       photoRef.current = await loadImageFromFile(file);
       setHasPhoto(true);
-      requestAnimationFrame(() => {
-        render();
-      });
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "That file could not be read. Try a JPG or PNG.",
-      );
+      setSide("front");
+    } catch {
+      setError("That file could not be read. Try a JPG, PNG or HEIC.");
     } finally {
       setBusy(false);
     }
-  }
+  }, []);
 
-  const isFormValid = hasPhoto && name.trim().length > 0 && role.trim().length > 0;
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      // Don't hijack paste when user is typing in a text input.
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const item = Array.from(e.clipboardData?.items ?? []).find((i) =>
+        i.type.startsWith("image/"),
+      );
+      if (item) onFile(item.getAsFile());
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [onFile]);
 
-  function generatePass() {
-    if (!isFormValid) {
-      if (!hasPhoto) setError("Please upload your photo to continue.");
-      else if (!name.trim()) setError("Please enter your name.");
-      else if (!role.trim()) setError("Please enter your role / stack.");
-      return;
-    }
-    setError(null);
-    render();
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const dataUrl = canvas.toDataURL("image/png");
-      setCardImgData(dataUrl);
-      setViewMode("reveal");
-    }
-  }
+  /** One PNG carrying both faces of the pass, side by side. */
+  const sheetBlob = useCallback(
+    () =>
+      new Promise<Blob | null>((resolve) => {
+        const front = frontRef.current;
+        const back = backRef.current;
+        if (!front || !back) return resolve(null);
+        composeSheet(front, back).toBlob((b) => resolve(b), "image/png");
+      }),
+    [],
+  );
 
-  async function toBlob(): Promise<Blob | null> {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
-  }
-
-  async function download() {
-    let url = cardImgData;
-    if (!url) {
-      const blob = await toBlob();
-      if (!blob) return;
-      url = URL.createObjectURL(blob);
-    }
+  const download = useCallback(async () => {
+    const blob = await sheetBlob();
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `hh-goa-2026-${(name || "builder").toLowerCase().replace(/\s+/g, "-")}.png`;
+    a.download = fileName(name);
+    document.body.appendChild(a);
     a.click();
-  }
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast("Downloaded — front and back on one image");
+  }, [name, sheetBlob, showToast]);
 
-  async function shareToX() {
-    const blob = await toBlob();
-    const caption = CAPTION(title);
-    const file = blob
-      ? new File([blob], "hh-goa-2026-builder-pass.png", { type: "image/png" })
-      : null;
-    const nav = navigator as Navigator & {
-      canShare?: (data: ShareData) => boolean;
-    };
+  /**
+   * Phones get the native share sheet with the PNG genuinely attached.
+   * Desktop copies it to the clipboard and opens the X composer pre-filled,
+   * so it's one paste away from being on the post.
+   */
+  const shareToX = useCallback(async () => {
+    const text = caption(title);
+    const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+
+    // Open the tweet window synchronously so popup blockers don't kill it.
+    // We'll set location later if we need native share instead.
+    const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
+
+    const blob = await sheetBlob();
+    const file = blob ? new File([blob], fileName(name), { type: "image/png" }) : null;
+    const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+
     if (file && nav.canShare?.({ files: [file] })) {
       try {
-        await nav.share({ files: [file], text: caption });
+        // Close the blank popup — native share replaces it.
+        popup?.close();
+        await nav.share({ files: [file], text });
         return;
-      } catch {
-        /* fall through */
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
       }
     }
-    await download();
-    window.open(
-      `https://twitter.com/intent/tweet?text=${encodeURIComponent(caption)}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
-  }
 
-  function resetAll() {
+    let copied = false;
+    if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        copied = true;
+      } catch {
+        /* clipboard image write unsupported — the download covers it */
+      }
+    }
+    if (!copied) await download();
+
+    showToast(
+      copied
+        ? "Card copied — paste into the post with Ctrl/⌘+V"
+        : "Card downloaded — attach it to the post",
+    );
+
+    // Navigate the already-open popup to the tweet composer.
+    if (popup && !popup.closed) {
+      popup.location.href = tweetUrl;
+    } else {
+      window.open(tweetUrl, "_blank", "noopener,noreferrer");
+    }
+  }, [download, name, showToast, title, sheetBlob]);
+
+  function reset() {
     setName("");
     setRole("");
+    setTitleTouched(false);
     setHasPhoto(false);
     photoRef.current = null;
-    setCardImgData(null);
-    setViewMode("edit");
+    setError(null);
+    setSide("front");
+    if (inputRef.current) inputRef.current.value = "";
   }
+
+  const field =
+    "w-full rounded-xl border-2 border-[color:var(--hh-ink)]/15 bg-[color:var(--hh-deep)] px-4 py-3 font-mono text-[15px] font-bold text-[color:var(--hh-cream)] outline-none transition placeholder:text-[color:var(--hh-cream)]/35 focus:border-[color:var(--hh-yellow)] md:text-base";
+  const legend =
+    "block font-mono text-[11px] font-bold uppercase tracking-[0.25em] text-[color:var(--hh-ink)]/55 md:text-xs";
+  const action =
+    "flex-1 rounded-xl border-[3px] border-[color:var(--hh-ink)] px-4 py-3.5 font-[Archivo_Black] text-[15px] shadow-[3px_3px_0_0_var(--hh-ink)] transition active:translate-y-[2px] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none md:text-base";
 
   return (
     <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[color:var(--hh-green)] text-[color:var(--hh-cream)]">
-      {/* Background image reverted to full cover */}
       <div className="pointer-events-none fixed inset-0 opacity-[0.14]">
         <img src={artUrl} alt="" className="h-full w-full object-cover" />
       </div>
 
-      {/* Reveal Overlay Mode */}
-      {viewMode === "reveal" && cardImgData ? (
-        <RevealVideoModal
-          cardSrc={cardImgData}
-          userName={name}
-          onDone={() => setViewMode("result")}
-        />
-      ) : null}
-
-      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-3 px-4 py-3 md:gap-4 md:py-5">
+      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-2 px-3 py-2 md:gap-4 md:px-4 md:py-4">
         <header className="shrink-0 text-center">
-          <span className="inline-block -rotate-2 border-[3px] border-[color:var(--hh-ink)] bg-[color:var(--hh-pink)] px-4 py-1 font-mono text-[11px] font-bold tracking-widest text-[color:var(--hh-cream)] md:text-sm">
+          <span className="inline-block -rotate-2 border-2 border-[color:var(--hh-ink)] bg-[color:var(--hh-pink)] px-3 py-0.5 font-mono text-[9px] font-bold tracking-widest md:text-xs">
             HACKER HOUSE GOA · 2026
           </span>
-          <h1 className="mt-2 font-[Archivo_Black] text-3xl leading-[0.95] tracking-tight md:text-5xl">
+          <h1 className="mt-1 font-[Archivo_Black] text-xl leading-none tracking-tight md:text-4xl">
             MAKE YOUR <span className="text-[color:var(--hh-yellow)]">BUILDER ID</span>
           </h1>
         </header>
 
-        {/* STEP 1: Live Edit Mode */}
-        {viewMode === "edit" ? (
-          <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,420px)] md:items-stretch md:gap-6">
-            {/* Live real-time canvas preview */}
-            <div className="order-2 flex min-h-0 flex-1 flex-col items-center justify-center gap-2 md:order-1">
-              <div className="relative flex h-full max-h-full aspect-[3/4] w-auto items-center justify-center rounded-3xl border-[4px] border-[color:var(--hh-ink)] bg-[color:var(--hh-deep)] p-1.5 shadow-[10px_10px_0_0_var(--hh-ink)] overflow-hidden">
-                <canvas
-                  ref={canvasRef}
-                  onClick={() => inputRef.current?.click()}
-                  className="block h-full w-full object-contain cursor-pointer rounded-2xl"
-                  aria-label="Real-time preview of your Builder ID card"
-                />
-                {!hasPhoto ? (
-                  <button
-                    type="button"
-                    onClick={() => inputRef.current?.click()}
-                    className="absolute inset-x-0 bottom-4 mx-auto w-[88%] rounded-full border-[3px] border-[color:var(--hh-ink)] bg-[color:var(--hh-yellow)] px-4 py-2.5 font-[Archivo_Black] text-xs md:text-sm text-[color:var(--hh-ink)] shadow-[4px_4px_0_0_var(--hh-ink)] active:translate-y-[1px]"
-                  >
-                    {busy ? "READING PHOTO…" : "TAP TO UPLOAD YOUR PHOTO *"}
-                  </button>
-                ) : null}
-              </div>
-              <p className="shrink-0 text-center font-mono text-xs text-[color:var(--hh-cream)]/70">
-                ✨ Live real-time preview — updates instantly as you type and change fields!
-              </p>
+        <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,500px)] md:grid-rows-1 md:items-stretch md:gap-5">
+          {/* ---------- Preview: flips between the two faces ---------- */}
+          <div className="flex min-h-0 flex-col items-center justify-center gap-1.5">
+            <div
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  inputRef.current?.click();
+                }
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                dragCounter.current += 1;
+                setDragging(true);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+              }}
+              onDragLeave={() => {
+                dragCounter.current -= 1;
+                if (dragCounter.current <= 0) {
+                  dragCounter.current = 0;
+                  setDragging(false);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                dragCounter.current = 0;
+                setDragging(false);
+                onFile(e.dataTransfer.files?.[0]);
+              }}
+              onClick={() => inputRef.current?.click()}
+              className={`relative flex min-h-0 flex-1 cursor-pointer items-center justify-center rounded-2xl border-[3px] p-1 shadow-[6px_6px_0_0_var(--hh-ink)] transition md:rounded-3xl md:p-1.5 md:shadow-[10px_10px_0_0_var(--hh-ink)] ${
+                dragging
+                  ? "border-[color:var(--hh-yellow)] bg-[color:var(--hh-yellow)]/25"
+                  : "border-[color:var(--hh-ink)] bg-[color:var(--hh-deep)]"
+              }`}
+            >
+              <canvas
+                ref={frontRef}
+                className={`block h-full max-h-full w-auto max-w-full rounded-xl object-contain md:rounded-2xl ${side === "front" ? "" : "hidden"}`}
+                aria-label="Front of your Hacker House Goa builder ID card"
+              />
+              <canvas
+                ref={backRef}
+                className={`block h-full max-h-full w-auto max-w-full rounded-xl object-contain md:rounded-2xl ${side === "back" ? "" : "hidden"}`}
+                aria-label="Back of your Hacker House Goa builder ID card"
+              />
+              {busy ? (
+                <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[color:var(--hh-deep)]/70 font-mono text-xs font-bold">
+                  Processing photo…
+                </div>
+              ) : null}
             </div>
 
-            {/* Step 1 Mandatory Form */}
-            <div className="order-1 min-h-0 shrink-0 self-start rounded-3xl border-[4px] border-[color:var(--hh-ink)] bg-[color:var(--hh-cream)] p-5 text-[color:var(--hh-ink)] shadow-[10px_10px_0_0_var(--hh-ink)] md:order-2 md:self-auto md:overflow-y-auto">
+            <div className="flex shrink-0 items-center gap-1 rounded-full border-2 border-[color:var(--hh-ink)] bg-[color:var(--hh-deep)] p-0.5">
+              {(["front", "back"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSide(s);
+                  }}
+                  className={`rounded-full px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest transition ${
+                    side === s
+                      ? "bg-[color:var(--hh-yellow)] text-[color:var(--hh-ink)]"
+                      : "text-[color:var(--hh-cream)]/60"
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ---------- Form ---------- */}
+          <div className="min-h-0 overflow-y-auto flex flex-col gap-3 md:gap-4">
+            {/* ---------- Form panel (enlarged) ---------- */}
+            <div className="rounded-2xl border-[3px] border-[color:var(--hh-ink)] bg-[color:var(--hh-cream)] p-5 text-[color:var(--hh-ink)] shadow-[6px_6px_0_0_var(--hh-ink)] md:rounded-3xl md:border-[4px] md:p-7 md:shadow-[10px_10px_0_0_var(--hh-ink)]">
               <input
                 ref={inputRef}
                 type="file"
@@ -233,257 +335,138 @@ export default function App() {
                 onChange={(e) => onFile(e.target.files?.[0])}
               />
 
-              <Field label="1 · Your Photo (Mandatory)">
-                <button
-                  type="button"
-                  onClick={() => inputRef.current?.click()}
-                  className="w-full rounded-xl border-[3px] border-[color:var(--hh-ink)] bg-white px-4 py-3 text-left font-mono text-sm font-bold shadow-sm transition hover:bg-amber-50"
-                >
-                  {busy
-                    ? "Reading photo…"
-                    : hasPhoto
-                    ? "✓ Photo Uploaded (Change ↺)"
-                    : "📷 Choose Photo *"}
-                </button>
-              </Field>
-
-              <Field label="2 · Name (Mandatory)">
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value.slice(0, 22))}
-                  placeholder="Enter your name *"
-                  className="w-full rounded-xl border-[3px] border-[color:var(--hh-ink)] bg-white px-4 py-2.5 font-mono text-sm font-bold outline-none focus:border-[color:var(--hh-pink)]"
-                />
-              </Field>
-
-              <Field label="3 · Role / Stack (Mandatory)">
-                <input
-                  value={role}
-                  onChange={(e) => setRole(e.target.value.slice(0, 28))}
-                  placeholder="e.g. Fullstack Dev *"
-                  className="w-full rounded-xl border-[3px] border-[color:var(--hh-ink)] bg-white px-4 py-2.5 font-mono text-sm font-bold outline-none focus:border-[color:var(--hh-pink)]"
-                />
-              </Field>
-
-              <Field label="4 · Builder Title">
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 rounded-xl border-[3px] border-[color:var(--hh-ink)] bg-[color:var(--hh-pink)] px-4 py-2.5 font-mono text-[11px] font-bold leading-snug text-[color:var(--hh-cream)]">
-                    {title}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setTitle(
-                        BUILDER_TITLES[Math.floor(Math.random() * BUILDER_TITLES.length)]!,
-                      )
-                    }
-                    aria-label="Reroll builder title"
-                    className="rounded-xl border-[3px] border-[color:var(--hh-ink)] bg-[color:var(--hh-yellow)] px-4 py-2.5 font-mono text-xs font-bold shadow-sm active:translate-y-[1px]"
-                  >
-                    REROLL 🎲
-                  </button>
-                </div>
-              </Field>
-
-              {error ? (
-                <div className="my-2 rounded-xl border-2 border-red-500 bg-red-100 p-2.5 font-mono text-xs font-bold text-red-700">
-                  ⚠️ {error}
-                </div>
-              ) : null}
-
-              {/* Primary Generate Button */}
               <button
                 type="button"
-                onClick={generatePass}
-                disabled={!isFormValid}
-                className={`mt-3 w-full rounded-2xl border-[3px] border-[color:var(--hh-ink)] px-5 py-3.5 font-[Archivo_Black] text-base text-[color:var(--hh-ink)] shadow-[4px_4px_0_0_var(--hh-ink)] transition active:translate-y-[2px] ${
-                  isFormValid
-                    ? "bg-[color:var(--hh-yellow)] hover:bg-amber-300 cursor-pointer"
-                    : "bg-gray-300 opacity-60 cursor-not-allowed"
-                }`}
+                onClick={() => inputRef.current?.click()}
+                className="w-full rounded-xl border-2 border-dashed border-[color:var(--hh-ink)]/30 bg-[color:var(--hh-deep)] px-5 py-5 text-center transition hover:border-[color:var(--hh-yellow)]"
               >
-                GENERATE BUILDER ID 🚀
+                <span className="block font-mono text-base font-bold text-[color:var(--hh-cream)] md:text-lg">
+                  {busy
+                    ? "Processing…"
+                    : hasPhoto
+                      ? "✓ Photo added — tap to change"
+                      : "📷 Upload a photo"}
+                </span>
+                <span className="mt-1.5 block font-mono text-[11px] text-[color:var(--hh-cream)]/55 md:text-[13px]">
+                  JPG · PNG · HEIC · any crop, any orientation
+                </span>
               </button>
 
-              {!isFormValid ? (
-                <p className="mt-2 text-center font-mono text-[11px] text-[color:var(--hh-ink)]/70">
-                  * Fill photo, name, & role to unlock reveal animation
-                </p>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {/* STEP 3: Main Result Page (with Hanging Lanyard Card & Action Buttons) */}
-        {viewMode === "result" && cardImgData ? (
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-between gap-4 md:flex-row md:items-center md:justify-center md:gap-12">
-            {/* Lanyard Hanging Card on Left / Center */}
-            <div className="flex flex-1 items-center justify-center">
-              <LanyardCard cardSrc={cardImgData} />
-            </div>
-
-            {/* Action Panel on Right */}
-            <div className="w-full max-w-md shrink-0 rounded-3xl border-[4px] border-[color:var(--hh-ink)] bg-[color:var(--hh-cream)] p-6 text-[color:var(--hh-ink)] shadow-[10px_10px_0_0_var(--hh-ink)]">
-              <div className="text-center">
-                <span className="inline-block rounded-full bg-[color:var(--hh-pink)] px-3 py-1 font-mono text-xs font-bold text-white">
-                  🎉 PASS CREATED SUCCESSFULLY!
-                </span>
-                <h2 className="mt-3 font-[Archivo_Black] text-2xl text-[color:var(--hh-ink)] md:text-3xl">
-                  {name || "BUILDER"} PASS READY
-                </h2>
-                <p className="mt-1 font-mono text-xs opacity-75">
-                  Certified <b className="text-[color:var(--hh-pink)]">{title}</b> for Hacker House Goa 2026!
-                </p>
-              </div>
-
-              <div className="mt-6 flex flex-col gap-3">
-                <button
-                  onClick={download}
-                  className="w-full rounded-2xl border-[3px] border-[color:var(--hh-ink)] bg-[color:var(--hh-yellow)] px-5 py-3.5 font-[Archivo_Black] text-base text-[color:var(--hh-ink)] shadow-[4px_4px_0_0_var(--hh-ink)] transition active:translate-y-[2px]"
-                >
-                  📥 DOWNLOAD PNG
-                </button>
-
-                <button
-                  onClick={shareToX}
-                  className="w-full rounded-2xl border-[3px] border-[color:var(--hh-ink)] bg-[color:var(--hh-pink)] px-5 py-3.5 font-[Archivo_Black] text-base text-white shadow-[4px_4px_0_0_var(--hh-ink)] transition active:translate-y-[2px]"
-                >
-                  🚀 SHARE TO X (#FrameInGoa)
-                </button>
-
-                <div className="mt-2 grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setViewMode("edit")}
-                    className="rounded-xl border-[2px] border-[color:var(--hh-ink)] bg-white px-3 py-2 font-mono text-xs font-bold text-[color:var(--hh-ink)] shadow-sm hover:bg-gray-50"
-                  >
-                    ✏️ EDIT DETAILS
-                  </button>
-                  <button
-                    onClick={resetAll}
-                    className="rounded-xl border-[2px] border-[color:var(--hh-ink)] bg-white px-3 py-2 font-mono text-xs font-bold text-[color:var(--hh-ink)] shadow-sm hover:bg-gray-50"
-                  >
-                    🔄 CREATE NEW
-                  </button>
+              <div className="mt-5 grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className={legend} htmlFor="hh-name">
+                    Name
+                  </label>
+                  <input
+                    id="hh-name"
+                    value={name}
+                    onChange={(e) => setName(uSlice(e.target.value, 22))}
+                    placeholder="Ada Lovelace"
+                    autoComplete="name"
+                    className={field}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className={legend} htmlFor="hh-role">
+                    Stack / role
+                  </label>
+                  <input
+                    id="hh-role"
+                    value={role}
+                    onChange={(e) => setRole(uSlice(e.target.value, 28))}
+                    placeholder="Full-stack · Rust"
+                    className={field}
+                  />
                 </div>
               </div>
+
+              <div className="mt-5 space-y-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <label className={legend} htmlFor="hh-title">
+                    Builder title
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTitleTouched(true);
+                      setTitle((prev) => {
+                        const pool = BUILDER_TITLES.filter((t) => t !== prev);
+                        return pool[Math.floor(Math.random() * pool.length)]!;
+                      });
+                    }}
+                    className="font-mono text-[12px] font-bold uppercase tracking-[0.2em] text-[color:var(--hh-pink)] hover:underline"
+                  >
+                    🔄 Reroll
+                  </button>
+                </div>
+                <input
+                  id="hh-title"
+                  value={title}
+                  onChange={(e) => {
+                    setTitleTouched(true);
+                    setTitle(uSlice(e.target.value, 46));
+                  }}
+                  className={`${field} text-[color:var(--hh-yellow)]`}
+                />
+              </div>
+
+              {error ? (
+                <p
+                  role="alert"
+                  className="mt-4 rounded-lg border-2 border-red-600 bg-red-50 p-3 font-mono text-[13px] font-bold text-red-700"
+                >
+                  ⚠️ {error}
+                </p>
+              ) : null}
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  onClick={download}
+                  disabled={!hasPhoto}
+                  className={`${action} bg-[color:var(--hh-yellow)] text-[color:var(--hh-ink)]`}
+                >
+                  📥 DOWNLOAD
+                </button>
+                <button
+                  type="button"
+                  onClick={shareToX}
+                  disabled={!hasPhoto}
+                  className={`${action} bg-[color:var(--hh-pink)] text-[color:var(--hh-cream)]`}
+                >
+                  🚀 SHARE TO X
+                </button>
+              </div>
+
+              <p className="mt-3 text-center font-mono text-[12px] text-[color:var(--hh-ink)]/60">
+                {hasPhoto ? (
+                  <>
+                    One PNG · front + back ·{" "}
+                    <button
+                      type="button"
+                      onClick={reset}
+                      className="underline hover:text-[color:var(--hh-pink)]"
+                    >
+                      start over
+                    </button>
+                  </>
+                ) : (
+                  "Add a photo to unlock download & share"
+                )}
+              </p>
             </div>
           </div>
-        ) : null}
-      </div>
-    </main>
-  );
-}
-
-/** Step 2: Reveal Video + Lanyard Ribbon Hanging Card Modal */
-function RevealVideoModal({
-  cardSrc,
-  userName,
-  onDone,
-}: {
-  cardSrc: string;
-  userName: string;
-  onDone: () => void;
-}) {
-  const [showHangingCard, setShowHangingCard] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    const onTime = () => {
-      if (v.currentTime >= CARD_CUE_MS / 1000) setShowHangingCard(true);
-    };
-    v.addEventListener("timeupdate", onTime);
-    return () => v.removeEventListener("timeupdate", onTime);
-  }, []);
-
-  const passLabel = `${(userName && userName.trim() ? userName : "BUILDER").toUpperCase()} PASS READY`;
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-[color:var(--hh-deep)]">
-      {/* Video Background */}
-      <video
-        ref={videoRef}
-        src={revealVideoUrl}
-        autoPlay
-        muted
-        playsInline
-        onEnded={onDone}
-        className="absolute inset-0 z-10 h-full w-full object-cover"
-      />
-
-      {/* Generated ID Card hanging on lanyard ribbon on right side */}
-      <div
-        className="absolute inset-y-0 right-4 z-20 flex items-center justify-center md:right-16"
-        style={{
-          opacity: showHangingCard ? 1 : 0,
-          transform: showHangingCard ? "translateY(0)" : "translateY(60px) scale(0.85)",
-          transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-        }}
-      >
-        <LanyardCard cardSrc={cardSrc} />
-      </div>
-
-      {/* Skip Button */}
-      <button
-        onClick={onDone}
-        className="absolute right-6 top-6 z-30 rounded-full border-[3px] border-[color:var(--hh-ink)] bg-[color:var(--hh-yellow)] px-5 py-2.5 font-[Archivo_Black] text-xs font-bold text-[color:var(--hh-ink)] shadow-[4px_4px_0_0_var(--hh-ink)] transition active:translate-y-[1px]"
-      >
-        CONTINUE TO RESULT ➔
-      </button>
-
-      <p className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2 font-mono text-xs tracking-widest text-[color:var(--hh-cream)]/90 bg-black/40 px-4 py-1.5 rounded-full backdrop-blur-sm uppercase">
-        🚀 {passLabel} · #FRAMEINGOA
-      </p>
-    </div>
-  );
-}
-
-/** Lanyard Strap + Hanging ID Badge Component */
-function LanyardCard({
-  cardSrc,
-  className = "",
-}: {
-  cardSrc: string;
-  className?: string;
-}) {
-  return (
-    <div className={`relative flex flex-col items-center select-none ${className}`}>
-      {/* Lanyard Ribbon extending down from top */}
-      <div className="h-20 w-9 bg-gradient-to-b from-[color:var(--hh-ink)] via-[color:var(--hh-pink)] to-[color:var(--hh-yellow)] shadow-lg rounded-t-sm flex items-center justify-center border-x-2 border-[color:var(--hh-ink)]">
-        <div className="w-1.5 h-full bg-black/30 border-x border-white/20" />
-      </div>
-
-      {/* Metallic Clip & Ring */}
-      <div className="relative z-20 -mt-2 flex flex-col items-center">
-        <div className="w-7 h-7 rounded-full border-[3px] border-[color:var(--hh-ink)] bg-slate-200 shadow-md flex items-center justify-center">
-          <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-500 bg-slate-400" />
         </div>
-        <div className="w-5 h-3.5 -mt-1 rounded-sm border-2 border-[color:var(--hh-ink)] bg-amber-400 shadow-sm" />
       </div>
 
-      {/* Hanging Badge Card */}
-      <div className="relative z-10 -mt-2.5 transition-transform duration-500 hover:rotate-1 hover:scale-[1.01]">
-        {/* Top lanyard hole punch cutout illusion */}
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 w-8 h-2.5 rounded-full border-2 border-[color:var(--hh-ink)] bg-slate-900/60 shadow-inner" />
-
-        <img
-          src={cardSrc}
-          alt="Generated Hacker House Goa Builder Pass"
-          className="h-[58vh] max-h-[560px] w-auto rounded-3xl border-[5px] border-[color:var(--hh-ink)] shadow-[14px_14px_0_0_var(--hh-ink)] object-contain"
-        />
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="mb-3 block">
-      <span className="mb-1 block font-mono text-[11px] font-bold uppercase tracking-widest opacity-80">
-        {label}
-      </span>
-      {children}
-    </label>
+      {toast ? (
+        <div
+          role="status"
+          className="fixed inset-x-4 bottom-3 z-50 mx-auto max-w-md rounded-xl border-2 border-[color:var(--hh-ink)] bg-[color:var(--hh-cream)] px-3 py-2 text-center font-mono text-[11px] font-bold text-[color:var(--hh-ink)] shadow-[4px_4px_0_0_var(--hh-ink)]"
+        >
+          {toast}
+        </div>
+      ) : null}
+    </main>
   );
 }

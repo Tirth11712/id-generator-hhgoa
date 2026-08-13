@@ -19,13 +19,3 @@ body {
   color: var(--hh-cream);
 }
 
-@keyframes hh-walk-in {
-  from {
-    transform: translateX(-60%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
