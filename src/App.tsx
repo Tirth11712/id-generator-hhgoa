@@ -171,23 +171,13 @@ export default function App() {
 
   /**
    * One-pass Share to X:
-   * Instantly opens Twitter/X composer pre-filled with tweet caption & handle in 1 click.
-   * Copies the image to clipboard for easy 1-tap pasting. Zero prompts/choosers.
+   * Opens Twitter/X composer pre-filled with tweet caption & handle immediately.
    */
   const shareToX = useCallback(() => {
     const text = caption(title, handle);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-
-    // 1. Instantly copy card image to clipboard in background
-    sheetBlob().then((blob) => {
-      if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
-        navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).catch(() => {});
-      }
-    });
-
-    // 2. Direct 1-click open of the pre-filled tweet composer window
-    window.open(tweetUrl, "_blank", "noopener,noreferrer");
-  }, [handle, title, sheetBlob]);
+    window.open(tweetUrl, "_blank");
+  }, [handle, title]);
 
   function reset() {
     setName("");
