@@ -185,10 +185,9 @@ export default function App() {
       }
     });
 
-    // 2. Direct 1-click open of the pre-filled tweet composer window (no prompts / no choosers)
+    // 2. Direct 1-click open of the pre-filled tweet composer window
     window.open(tweetUrl, "_blank", "noopener,noreferrer");
-    showToast("Opened pre-filled tweet — image copied to clipboard (paste with Ctrl/⌘+V)");
-  }, [handle, title, sheetBlob, showToast]);
+  }, [handle, title, sheetBlob]);
 
   function reset() {
     setName("");
