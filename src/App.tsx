@@ -3,9 +3,7 @@ import artUrl from "./assets/hh-goa-bg.jpg";
 import cardTemplateUrl from "./assets/hh-goa-card-template.jpeg";
 
 import {
-  composeSheet,
   drawBadge,
-  drawBadgeBack,
   loadImage,
   loadImageFromFile,
   pickBuilderTitle,
@@ -30,7 +28,6 @@ const uSlice = (s: string, max: number) => {
 
 export default function App() {
   const frontRef = useRef<HTMLCanvasElement>(null);
-  const backRef = useRef<HTMLCanvasElement>(null);
   const templateRef = useRef<HTMLImageElement | null>(null);
   const photoRef = useRef<HTMLImageElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -48,7 +45,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [side, setSide] = useState<"front" | "back">("front");
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -85,7 +81,6 @@ export default function App() {
     renderRaf.current = requestAnimationFrame(() => {
       const input = { ...badgeInput, photo: photoRef.current, art: templateRef.current };
       if (frontRef.current) drawBadge(frontRef.current, input);
-      if (backRef.current) drawBadgeBack(backRef.current, input);
     });
     return () => cancelAnimationFrame(renderRaf.current);
   }, [badgeInput]);
@@ -113,7 +108,6 @@ export default function App() {
     try {
       photoRef.current = await loadImageFromFile(file);
       setHasPhoto(true);
-      setSide("front");
     } catch {
       setError("That file could not be read. Try a JPG, PNG or HEIC.");
     } finally {
@@ -135,20 +129,19 @@ export default function App() {
     return () => window.removeEventListener("paste", onPaste);
   }, [onFile]);
 
-  /** One PNG carrying both faces of the pass, side by side. */
-  const sheetBlob = useCallback(
+  /** PNG of the front builder pass. */
+  const cardBlob = useCallback(
     () =>
       new Promise<Blob | null>((resolve) => {
         const front = frontRef.current;
-        const back = backRef.current;
-        if (!front || !back) return resolve(null);
-        composeSheet(front, back).toBlob((b) => resolve(b), "image/png");
+        if (!front) return resolve(null);
+        front.toBlob((b) => resolve(b), "image/png");
       }),
     [],
   );
 
   const download = useCallback(async () => {
-    const blob = await sheetBlob();
+    const blob = await cardBlob();
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -158,8 +151,8 @@ export default function App() {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast("Downloaded — front and back on one image");
-  }, [name, sheetBlob, showToast]);
+    showToast("Downloaded — builder pass image");
+  }, [name, cardBlob, showToast]);
 
   /**
    * Directly redirects to X with pre-filled caption & handle tag in one click.
@@ -169,7 +162,7 @@ export default function App() {
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     
     // Copy badge image to clipboard synchronously if supported for easy pasting
-    sheetBlob().then((blob) => {
+    cardBlob().then((blob) => {
       if (blob && "clipboard" in navigator && "ClipboardItem" in window) {
         navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).catch(() => {});
       }
@@ -178,7 +171,7 @@ export default function App() {
     // Direct, unblocked popup open on user click
     window.open(tweetUrl, "_blank", "noopener,noreferrer");
     showToast("Opening X — image copied to clipboard (paste with Ctrl/⌘+V)");
-  }, [handle, title, sheetBlob, showToast]);
+  }, [handle, title, cardBlob, showToast]);
 
   function reset() {
     setName("");
@@ -188,7 +181,6 @@ export default function App() {
     setHasPhoto(false);
     photoRef.current = null;
     setError(null);
-    setSide("front");
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -257,39 +249,14 @@ export default function App() {
             >
               <canvas
                 ref={frontRef}
-                className={`block h-full max-h-[500px] md:max-h-full w-auto max-w-full rounded-xl object-contain md:rounded-2xl ${side === "front" ? "" : "hidden"}`}
-                aria-label="Front of your Hacker House Goa builder ID card"
-              />
-              <canvas
-                ref={backRef}
-                className={`block h-full max-h-[500px] md:max-h-full w-auto max-w-full rounded-xl object-contain md:rounded-2xl ${side === "back" ? "" : "hidden"}`}
-                aria-label="Back of your Hacker House Goa builder ID card"
+                className="block h-full max-h-[500px] md:max-h-full w-auto max-w-full rounded-xl object-contain md:rounded-2xl"
+                aria-label="Your Hacker House Goa builder ID card"
               />
               {busy ? (
                 <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[color:var(--hh-deep)]/70 font-mono text-xs font-bold">
                   Processing photo…
                 </div>
               ) : null}
-            </div>
-
-            <div className="flex shrink-0 items-center gap-1 rounded-full border-2 border-[color:var(--hh-ink)] bg-[color:var(--hh-deep)] p-0.5 shadow-sm">
-              {(["front", "back"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSide(s);
-                  }}
-                  className={`rounded-full px-4 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest transition ${
-                    side === s
-                      ? "bg-[color:var(--hh-yellow)] text-[color:var(--hh-ink)]"
-                      : "text-[color:var(--hh-cream)]/60"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
             </div>
           </div>
 
