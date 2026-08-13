@@ -230,24 +230,24 @@ export default function App() {
     "flex-1 rounded-xl border-[3px] border-[color:var(--hh-ink)] px-4 py-3.5 font-[Archivo_Black] text-[15px] shadow-[3px_3px_0_0_var(--hh-ink)] transition active:translate-y-[2px] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none md:text-base";
 
   return (
-    <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[color:var(--hh-green)] text-[color:var(--hh-cream)]">
+    <main className="flex h-dvh min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-[color:var(--hh-green)] text-[color:var(--hh-cream)] md:overflow-hidden">
       <div className="pointer-events-none fixed inset-0 opacity-[0.14]">
         <img src={artUrl} alt="" className="h-full w-full object-cover" />
       </div>
 
-      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-2 px-3 py-2 md:gap-4 md:px-4 md:py-4">
+      <div className="relative mx-auto flex min-h-full w-full max-w-6xl flex-col gap-3 px-3 py-3 md:h-full md:min-h-0 md:gap-4 md:px-4 md:py-4">
         <header className="shrink-0 text-center">
-          <span className="inline-block -rotate-2 border-2 border-[color:var(--hh-ink)] bg-[color:var(--hh-pink)] px-3 py-0.5 font-mono text-[9px] font-bold tracking-widest md:text-xs">
+          <span className="inline-block -rotate-2 border-2 border-[color:var(--hh-ink)] bg-[color:var(--hh-pink)] px-3 py-0.5 font-mono text-[10px] font-bold tracking-widest md:text-xs">
             HACKER HOUSE GOA · 2026
           </span>
-          <h1 className="mt-1 font-[Archivo_Black] text-xl leading-none tracking-tight md:text-4xl">
+          <h1 className="mt-1 font-[Archivo_Black] text-2xl leading-none tracking-tight sm:text-3xl md:text-4xl">
             MAKE YOUR <span className="text-[color:var(--hh-yellow)]">BUILDER ID</span>
           </h1>
         </header>
 
-        <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,500px)] md:grid-rows-1 md:items-stretch md:gap-5">
+        <div className="flex flex-col gap-4 min-h-0 flex-1 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,500px)] md:grid-rows-1 md:items-stretch md:gap-5">
           {/* ---------- Preview: flips between the two faces ---------- */}
-          <div className="flex min-h-0 flex-col items-center justify-center gap-1.5">
+          <div className="flex min-h-[360px] sm:min-h-[420px] md:min-h-0 flex-col items-center justify-center gap-2">
             <div
               role="button"
               tabIndex={0}
@@ -279,7 +279,7 @@ export default function App() {
                 onFile(e.dataTransfer.files?.[0]);
               }}
               onClick={() => inputRef.current?.click()}
-              className={`relative flex min-h-0 flex-1 cursor-pointer items-center justify-center rounded-2xl border-[3px] p-1 shadow-[6px_6px_0_0_var(--hh-ink)] transition md:rounded-3xl md:p-1.5 md:shadow-[10px_10px_0_0_var(--hh-ink)] ${
+              className={`relative flex h-full min-h-0 w-full max-w-[340px] sm:max-w-[420px] md:max-w-none flex-1 cursor-pointer items-center justify-center rounded-2xl border-[3px] p-2 shadow-[6px_6px_0_0_var(--hh-ink)] transition md:rounded-3xl md:p-3 md:shadow-[10px_10px_0_0_var(--hh-ink)] ${
                 dragging
                   ? "border-[color:var(--hh-yellow)] bg-[color:var(--hh-yellow)]/25"
                   : "border-[color:var(--hh-ink)] bg-[color:var(--hh-deep)]"
@@ -287,12 +287,12 @@ export default function App() {
             >
               <canvas
                 ref={frontRef}
-                className={`block h-full max-h-full w-auto max-w-full rounded-xl object-contain md:rounded-2xl ${side === "front" ? "" : "hidden"}`}
+                className={`block h-full max-h-[500px] md:max-h-full w-auto max-w-full rounded-xl object-contain md:rounded-2xl ${side === "front" ? "" : "hidden"}`}
                 aria-label="Front of your Hacker House Goa builder ID card"
               />
               <canvas
                 ref={backRef}
-                className={`block h-full max-h-full w-auto max-w-full rounded-xl object-contain md:rounded-2xl ${side === "back" ? "" : "hidden"}`}
+                className={`block h-full max-h-[500px] md:max-h-full w-auto max-w-full rounded-xl object-contain md:rounded-2xl ${side === "back" ? "" : "hidden"}`}
                 aria-label="Back of your Hacker House Goa builder ID card"
               />
               {busy ? (
@@ -302,7 +302,7 @@ export default function App() {
               ) : null}
             </div>
 
-            <div className="flex shrink-0 items-center gap-1 rounded-full border-2 border-[color:var(--hh-ink)] bg-[color:var(--hh-deep)] p-0.5">
+            <div className="flex shrink-0 items-center gap-1 rounded-full border-2 border-[color:var(--hh-ink)] bg-[color:var(--hh-deep)] p-0.5 shadow-sm">
               {(["front", "back"] as const).map((s) => (
                 <button
                   key={s}
@@ -311,7 +311,7 @@ export default function App() {
                     e.stopPropagation();
                     setSide(s);
                   }}
-                  className={`rounded-full px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest transition ${
+                  className={`rounded-full px-4 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest transition ${
                     side === s
                       ? "bg-[color:var(--hh-yellow)] text-[color:var(--hh-ink)]"
                       : "text-[color:var(--hh-cream)]/60"
@@ -324,7 +324,7 @@ export default function App() {
           </div>
 
           {/* ---------- Form ---------- */}
-          <div className="min-h-0 overflow-y-auto flex flex-col gap-3 md:gap-4">
+          <div className="min-h-0 flex flex-col gap-3 md:gap-4 md:overflow-y-auto">
             {/* ---------- Form panel (enlarged) ---------- */}
             <div className="rounded-2xl border-[3px] border-[color:var(--hh-ink)] bg-[color:var(--hh-cream)] p-5 text-[color:var(--hh-ink)] shadow-[6px_6px_0_0_var(--hh-ink)] md:rounded-3xl md:border-[4px] md:p-7 md:shadow-[10px_10px_0_0_var(--hh-ink)]">
               <input
@@ -352,7 +352,7 @@ export default function App() {
                 </span>
               </button>
 
-              <div className="mt-5 grid grid-cols-2 gap-4">
+              <div className="mt-4 sm:mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                   <label className={legend} htmlFor="hh-name">
                     Name
@@ -419,7 +419,7 @@ export default function App() {
                 </p>
               ) : null}
 
-              <div className="mt-5 flex gap-3">
+              <div className="mt-4 sm:mt-5 flex flex-col sm:flex-row gap-3">
                 <button
                   type="button"
                   onClick={download}
